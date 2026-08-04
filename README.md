@@ -55,9 +55,9 @@ bun run check
 ## GitHub Reviews
 
 The repository includes an optional OpenCode pull-request review workflow at
-`.github/workflows/opencode-review.yml`. Add an `ANTHROPIC_API_KEY` Actions secret before
-enabling it. The workflow uses the official `anomalyco/opencode/github` action and read-only
-pull-request permissions.
+`.github/workflows/opencode-review.yml`. Add an `OPENCODE_API_KEY` Actions secret before
+enabling it. The workflow uses the OpenCode Zen `deepseek-v4-flash` model through the official
+`anomalyco/opencode/github` action and read-only pull-request permissions.
 
 Monitor state is intentionally ignored by Git. Never commit real Jira keys, repository
 names, Slack URLs, session IDs, webhook payloads, or credentials in tests and examples.
