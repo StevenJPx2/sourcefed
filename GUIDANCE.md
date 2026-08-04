@@ -1,8 +1,8 @@
 # sourcefed — monitoring guidance
 
-sourcefed is a monitor plugin. It lets you create **monitors** that watch a Jira issue, GitHub PR,
-or Slack thread and route NEW events into the session you're currently working in, so you can
-react to them as they happen.
+sourcefed is a monitor service. It lets you create **monitors** that watch a Jira issue, GitHub
+PR, or Slack thread and route NEW events into the host session where the monitor was created.
+The OpenCode and Pi adapters use the Sourcefed MCP server for monitor tools and event delivery.
 
 ## When to create a monitor
 
@@ -36,7 +36,7 @@ transport branches to tools or scheduling.
 
 ## Lifecycle
 
-- Monitors belong to the session that created them; list, status, and stop only affect that session's monitors.
+- Monitors belong to the target that created them; list, status, and stop only affect that target's monitors.
 - `monitor_list` — see monitors created by this session.
 - `monitor_status { id }` — detail on one of this session's monitors.
 - `monitor_stop { id }` — stop routing events for one of this session's monitors.

@@ -1,0 +1,14 @@
+{
+  "name": "@sourcefed/store",
+  "version": "0.2.0",
+  "description": "JSON-backed persistence for Sourcefed.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sourcefed/core": "workspace:*",
+    "valibot": "1.4.2"
+  }
+}

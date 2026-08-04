@@ -1,0 +1,18 @@
+{
+  "name": "@sourcefed/mcp",
+  "version": "0.2.0",
+  "description": "Sourcefed MCP server and client helpers.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@sourcefed/core": "workspace:*",
+    "@sourcefed/providers": "workspace:*",
+    "@sourcefed/store": "workspace:*",
+    "zod": "4.4.3"
+  }
+}

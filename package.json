@@ -1,7 +1,8 @@
 {
   "name": "sourcefed",
-  "version": "0.1.0",
-  "description": "An OpenCode plugin that feeds live Jira, GitHub, and Slack events into the active agent session.",
+  "version": "0.2.0",
+  "description": "Live Jira, GitHub, and Slack monitoring for agent hosts.",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/StevenJPx2/sourcefed.git"
@@ -11,31 +12,31 @@
   "exports": {
     ".": "./index.ts",
     "./tui": "./tui.ts",
-    "./guidance": "./GUIDANCE.md"
-  },
-  "imports": {
-    "#sourcefed/monitors": "./src/monitors/index.ts",
-    "#sourcefed/sources": "./src/sources/index.ts",
-    "#sourcefed/source-utils": "./src/sources/utils/index.ts",
-    "#sourcefed/types": "./src/types/index.ts",
-    "#sourcefed/utils": "./src/utils/index.ts"
+    "./guidance": "./GUIDANCE.md",
+    "./core": "./packages/core/src/index.ts",
+    "./mcp": "./packages/mcp/src/index.ts",
+    "./cli": "./apps/cli/src/index.ts",
+    "./pi": "./adapters/pi/src/index.ts"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "*",
-    "@opencode-ai/sdk": "*",
-    "@opentui/core": "0.4.5",
-    "@opentui/keymap": "0.4.5",
-    "@opentui/solid": "0.4.5",
-    "solid-js": "1.9.9",
-    "valibot": "1.4.2"
+    "@sourcefed/core": "workspace:*",
+    "@sourcefed/mcp": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
-    "@types/node": "^26.1.2"
+    "@types/node": "^26.1.2",
+    "typescript": "^5.9.2"
   },
+  "workspaces": [
+    "packages/*",
+    "packages/providers/*",
+    "apps/*",
+    "adapters/*"
+  ],
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "check": "bun test && bun run typecheck"
+    "check": "bun test && bun run typecheck",
+    "sourcefed": "bun run apps/cli/src/index.ts"
   }
 }

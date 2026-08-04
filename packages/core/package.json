@@ -1,0 +1,19 @@
+{
+  "name": "@sourcefed/core",
+  "version": "0.2.0",
+  "description": "Host-independent monitor engine and built-in source adapters.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "imports": {
+    "#sourcefed/monitors": "./src/monitors/index.ts",
+    "#sourcefed/sources": "./src/sources/index.ts",
+    "#sourcefed/types": "./src/types/index.ts",
+    "#sourcefed/utils": "./src/utils/index.ts"
+  },
+  "dependencies": {
+    "valibot": "1.4.2"
+  }
+}

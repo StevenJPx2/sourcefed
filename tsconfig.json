@@ -12,5 +12,14 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tools/**/*.ts", "index.ts"]
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
+    "apps/**/*.ts",
+    "apps/**/*.tsx",
+    "adapters/**/*.ts",
+    "adapters/**/*.tsx",
+    "index.ts",
+    "tui.ts"
+  ]
 }
