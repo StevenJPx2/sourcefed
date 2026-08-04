@@ -8,13 +8,13 @@ import {
   type MonitorRecord,
   type MonitorStore,
 } from "@sourcefed/core"
-import { isSource, SOURCE_MAP, sourceDefinition, sourceForInput, sourceForWebhookPath } from "@sourcefed/providers"
+import { isSource, SOURCE_MAP, SOURCE_TYPES, sourceDefinition, sourceForInput, sourceForWebhookPath } from "@sourcefed/providers"
 import { JsonMonitorEventQueue, JsonMonitorStore } from "@sourcefed/store"
 import { NotifyingEventSink } from "./events.ts"
 import { decodeTarget, eventResourceUri } from "./uris.ts"
 
 const targetSchema = z.object({ kind: z.string().min(1), id: z.string().min(1) })
-const sourceTypeSchema = z.enum(["jira", "github", "slack"])
+const sourceTypeSchema = z.enum(SOURCE_TYPES)
 const createSchema = z.object({
   name: z.string().min(1),
   sourceType: sourceTypeSchema,

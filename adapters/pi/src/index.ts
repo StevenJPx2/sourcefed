@@ -3,7 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
-import { connectSourcefedClient, listenForTarget, localDaemonEnvironment, localMcpCommand, parseToolResult } from "@sourcefed/mcp"
+import { SOURCE_TYPES, connectSourcefedClient, listenForTarget, localDaemonEnvironment, localMcpCommand, parseToolResult } from "@sourcefed/mcp"
 
 type PiTarget = { kind: "pi-session"; id: string }
 
@@ -13,7 +13,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     name: "sourcefed-pi",
     url: process.env.SOURCEFED_MCP_URL,
     command: local.command,
-    args: process.env.SOURCEFED_MCP_ARGS?.split(" ") ?? local.args,
+    args: local.args,
     env: localDaemonEnvironment("pi"),
   })
   const listeners = new Map<string, { close(): Promise<void> }>()
@@ -34,7 +34,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     description: "Create or reuse a Sourcefed monitor for the current Pi session.",
     parameters: Type.Object({
       name: Type.String(),
-      sourceType: Type.Union([Type.Literal("jira"), Type.Literal("github"), Type.Literal("slack")]),
+      sourceType: Type.Unsafe<string>({ type: "string", enum: SOURCE_TYPES }),
       issueKey: Type.Optional(Type.String()),
       repo: Type.Optional(Type.String()),
       prNumber: Type.Optional(Type.Number()),

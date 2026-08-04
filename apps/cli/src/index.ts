@@ -2,7 +2,7 @@
 
 import os from "node:os"
 import { serveStdio } from "@modelcontextprotocol/server/stdio"
-import { connectSourcefedClient, createSourcefedMcp, createSourcefedStdio, parseToolResult, type SourcefedClientOptions } from "@sourcefed/mcp"
+import { SOURCE_TYPES, connectSourcefedClient, createSourcefedMcp, createSourcefedStdio, parseToolResult, type SourcefedClientOptions } from "@sourcefed/mcp"
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [command, subcommand, ...rest] = argv
@@ -96,7 +96,7 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
 
     if (subcommand === "create") {
       const sourceType = flag(args, "source-type")
-      if (sourceType !== "jira" && sourceType !== "github" && sourceType !== "slack") throw new Error("create requires --source-type jira|github|slack")
+      if (!sourceType || !SOURCE_TYPES.includes(sourceType)) throw new Error(`create requires --source-type ${SOURCE_TYPES.join("|")}`)
       const input: Record<string, unknown> = {
         name: flag(args, "name") ?? sourceType,
         sourceType,

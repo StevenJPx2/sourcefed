@@ -18,15 +18,37 @@ export type SourcefedClientOptions = {
   env?: Record<string, string>
 }
 
+const LOCAL_DAEMON_ENVIRONMENT = [
+  "PATH",
+  "HOME",
+  "USER",
+  "TMPDIR",
+  "LANG",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+  "ATLASSIAN_EMAIL",
+  "ATLASSIAN_API_KEY",
+  "GH_TOKEN",
+  "GITHUB_TOKEN",
+  "SOURCEFED_JIRA_BASE_URL",
+  "SOURCEFED_JIRA_TERMINAL_STATUS",
+  "SOURCEFED_GITHUB_WEBHOOK_SECRET",
+  "SOURCEFED_SLACK_SIGNING_SECRET",
+  "SOURCEFED_ENABLE_WEBHOOKS",
+  "SOURCEFED_WEBHOOK_HOST",
+  "SOURCEFED_WEBHOOK_PORT",
+] as const
+
 export function localDaemonEnvironment(host: string, legacyStateFile?: string): Record<string, string> {
-  const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+  const environment = Object.fromEntries(
+    LOCAL_DAEMON_ENVIRONMENT.flatMap((name) => process.env[name] === undefined ? [] : [[name, process.env[name]!]]),
+  )
   environment.SOURCEFED_STATE_DIR ??= path.join(process.env.XDG_STATE_HOME ?? path.join(os.homedir(), ".local", "state"), "sourcefed", host)
   if (legacyStateFile) environment.SOURCEFED_LEGACY_STATE_FILE ??= legacyStateFile
   return environment
 }
 
 export function localMcpCommand(cliEntryPath: string): { command: string; args: string[] } {
-  if (process.env.SOURCEFED_MCP_COMMAND) return { command: process.env.SOURCEFED_MCP_COMMAND, args: ["mcp", "--stdio"] }
   return {
     command: "bun",
     args: [cliEntryPath, "mcp", "--stdio"],

@@ -7,3 +7,5 @@ export const SOURCE_MAP = {
   github: new GithubMonitor(),
   slack: new SlackMonitor(),
 }
+
+export const SOURCE_TYPES = Object.keys(SOURCE_MAP) as [string, ...string[]]

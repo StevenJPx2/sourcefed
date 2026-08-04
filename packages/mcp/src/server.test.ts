@@ -85,4 +85,36 @@ describe("Sourcefed MCP", () => {
     await client.close()
     mcp.close()
   })
+
+  test("stops only a monitor owned by the requested target", async () => {
+    const mcp = createSourcefedMcp({
+      store: new InMemoryMonitorStore(),
+      eventQueue: new InMemoryMonitorEventQueue(),
+    })
+    const client = new Client({ name: "sourcefed-test", version: "0.0.0" }, { versionNegotiation: { mode: "auto" } })
+    const transport = new StreamableHTTPClientTransport(new URL("http://sourcefed.test/mcp"), {
+      fetch: (url, init) => mcp.handler.fetch(new Request(url, init)),
+    })
+    await client.connect(transport)
+
+    const target = { kind: "test", id: "session-1" }
+    const created = parseToolResult(await client.callTool({
+      name: "monitor_create",
+      arguments: { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742", target },
+    })) as { monitor: MonitorRecord }
+    const unauthorized = await client.callTool({
+      name: "monitor_stop",
+      arguments: { target: { kind: "other", id: "session-2" }, id: created.monitor.id },
+    })
+    expect(parseToolResult(unauthorized)).toContain("not found")
+
+    const stopped = parseToolResult(await client.callTool({
+      name: "monitor_stop",
+      arguments: { target, id: created.monitor.id },
+    })) as { monitor: MonitorRecord }
+    expect(stopped.monitor.enabled).toBe(false)
+
+    await client.close()
+    mcp.close()
+  })
 })

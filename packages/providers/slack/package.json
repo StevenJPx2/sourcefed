@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "@sourcefed/core": "workspace:*",
-    "@sourcefed/providers": "workspace:*",
     "valibot": "1.4.2"
   }
 }

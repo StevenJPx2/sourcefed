@@ -23,7 +23,7 @@ export class OpenCodeBridge {
       name: "sourcefed-opencode",
       url: process.env.SOURCEFED_MCP_URL,
       command: local.command,
-      args: process.env.SOURCEFED_MCP_ARGS?.split(" ") ?? local.args,
+      args: local.args,
       env: localDaemonEnvironment("opencode", path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..", ".state", "monitors.json")),
     })
   }

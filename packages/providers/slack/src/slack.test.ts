@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { MonitorRecord, MonitorSource } from "@sourcefed/core"
 import type { SlackSourceRecord } from "./types"
-import { sourceDefinition, sourceForInput } from "@sourcefed/providers"
 import { SlackMonitor } from "./index"
 import { parseSlackReadResult } from "./poll"
 import { parseSlackWebhook, slackSignature, validSlackSignature } from "./webhook"
@@ -25,7 +24,7 @@ describe("Slack monitor source", () => {
   })
 
   test("converts a parent message path timestamp when no query timestamp exists", () => {
-    const source = sourceForInput("slack", {
+    const source = new SlackMonitor().build({
       threadUrl: "https://workspace.slack.com/archives/D123456/p1712345678901234",
     })
 
@@ -33,22 +32,16 @@ describe("Slack monitor source", () => {
   })
 
   test("requires a channel and thread timestamp", () => {
-    expect(sourceForInput("slack", { threadUrl: "https://workspace.slack.com/client" })).toEqual({
+    expect(new SlackMonitor().build({ threadUrl: "https://workspace.slack.com/client" })).toEqual({
       error: "threadUrl does not contain a Slack channel and thread timestamp",
     })
   })
 
   test("prefers webhook delivery when the signing secret is available", () => {
     const source: MonitorSource = { type: "slack", channelId: "D123456", threadTs: "1712345678.901234" }
-    expect(sourceDefinition(source).initialDelivery(source)).toBe("webhook")
-    expect(sourceDefinition(source).webhook?.preferred).toBe(true)
-  })
-
-  test("allows a source to declare only polling", () => {
-    const source: MonitorSource = { type: "jira", issueKey: "PROJ-12345" }
-    expect(sourceDefinition(source).poll).toBeDefined()
-    expect(sourceDefinition(source).webhook).toBeUndefined()
-    expect(sourceDefinition(source).initialDelivery(source)).toBe("poll")
+    const monitor = new SlackMonitor()
+    expect(monitor.initialDelivery(source)).toBe("webhook")
+    expect(monitor.webhook?.preferred).toBe(true)
   })
 })
 
@@ -179,11 +172,11 @@ describe("transport recovery", () => {
   }
 
   test("recovers from polling to a healthy webhook", () => {
-    expect(sourceDefinition(monitor.source).resolveDelivery(monitor)).toBe("webhook")
+    expect(new SlackMonitor().resolveDelivery(monitor)).toBe("webhook")
   })
 
   test("falls back to polling when the webhook heartbeat is stale", () => {
     const stale: MonitorRecord = { ...monitor, delivery: "webhook", cursors: { __webhookHeartbeatAt: Date.now() - 120_000 } }
-    expect(sourceDefinition(stale.source).resolveDelivery(stale)).toBe("poll")
+    expect(new SlackMonitor().resolveDelivery(stale)).toBe("poll")
   })
 })
