@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -24,8 +28,17 @@ jobs:
           model: opencode/deepseek-v4-flash
           use_github_token: true
           prompt: |
-            Review this pull request:
-            - Check for correctness and security issues.
+            Review ONLY the code changes in this pull request. The PR thread may contain
+            previous review comments from this workflow (posted by github-actions[bot]);
+            those comments are NOT review material. Never critique, verify, or re-litigate
+            prior automated reviews, and never review conversation comments, review
+            bodies, or CI summaries as if they were code.
+
+            Your only subject is the code diff and the files it touches:
+            - Check the changed code for correctness and security issues.
             - Check that tests cover behavior changes.
             - Check that source-specific logic stays within its source boundary.
-            - Report only actionable findings.
+            - Report only actionable findings that are NOT already covered by the most
+              recent previous review comment from this workflow. If the previous findings
+              still apply and nothing new was introduced, state that in one sentence
+              instead of repeating the findings.
