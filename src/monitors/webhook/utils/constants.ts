@@ -1,0 +1,2 @@
+export const WEBHOOK_STALE_MS = 90_000
+export const WEBHOOK_STARTUP_GRACE_MS = 120_000

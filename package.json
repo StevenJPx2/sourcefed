@@ -1,0 +1,41 @@
+{
+  "name": "sourcefed",
+  "version": "0.1.0",
+  "description": "An OpenCode plugin that feeds live Jira, GitHub, and Slack events into the active agent session.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StevenJPx2/sourcefed.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./tui": "./tui.ts",
+    "./guidance": "./GUIDANCE.md"
+  },
+  "imports": {
+    "#sourcefed/monitors": "./src/monitors/index.ts",
+    "#sourcefed/sources": "./src/sources/index.ts",
+    "#sourcefed/source-utils": "./src/sources/utils/index.ts",
+    "#sourcefed/types": "./src/types/index.ts",
+    "#sourcefed/utils": "./src/utils/index.ts"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "*",
+    "@opencode-ai/sdk": "*",
+    "@opentui/core": "0.4.5",
+    "@opentui/keymap": "0.4.5",
+    "@opentui/solid": "0.4.5",
+    "solid-js": "1.9.9",
+    "valibot": "1.4.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.1.2"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "bun test && bun run typecheck"
+  }
+}
