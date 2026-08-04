@@ -53,7 +53,7 @@ jobs:
             - Check the changed code for correctness and security issues.
             - Check that tests cover behavior changes.
             - Check that source-specific logic stays within its source boundary.
-            - Report only actionable findings that are NOT already covered by the most
-              recent previous review comment from this workflow. If the previous findings
-              still apply and nothing new was introduced, state that in one sentence
-              instead of repeating the findings.
+            - Report only actionable findings in the changed code.
+            - If there are no new actionable code findings, output exactly:
+              No new actionable code findings.
+            - Do not mention previous reviews, comments, or prior findings in the output.
