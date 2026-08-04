@@ -3,7 +3,15 @@ import type { MonitorTarget } from "#sourcefed/types"
 import type { MonitorRecord } from "../types"
 
 function monitorSourceIdentity(source: MonitorSource): string {
-  return JSON.stringify(source)
+  return JSON.stringify(stableValue(source))
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue)
+  if (!value || typeof value !== "object") return value
+  return Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) => left.localeCompare(right)).map(([key, entry]) => [key, stableValue(entry)]),
+  )
 }
 
 export function monitorIdentity(target: MonitorTarget, source: MonitorSource): string {

@@ -66,7 +66,7 @@ export async function connectSourcefedClient(options: SourcefedClientOptions): P
     await client.connect(new StdioClientTransport({
       command: options.command ?? "sourcefed",
       args: options.args ?? ["mcp", "--stdio"],
-      env: options.env,
+      env: options.env ?? localDaemonEnvironment("client"),
     }))
   }
   return client

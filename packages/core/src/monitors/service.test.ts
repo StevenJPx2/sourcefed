@@ -20,6 +20,13 @@ describe("MonitorService", () => {
     expect(reused.created).toBe(false)
     expect(reused.monitor.id).toBe(created.monitor.id)
     expect(created.monitor.pollIntervalSec).toBe(15)
+
+    const reordered = await service.create({
+      ...input,
+      source: { key: "issue-1", type: "test" },
+    })
+    expect(reordered.created).toBe(false)
+
     expect(await service.list()).toHaveLength(1)
 
     const stopped = await service.stop(created.monitor.id)

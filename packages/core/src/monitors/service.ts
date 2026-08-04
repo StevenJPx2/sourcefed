@@ -45,7 +45,7 @@ export class MonitorService {
         source: input.source,
         delivery: input.delivery,
         target: input.target,
-        pollIntervalSec: Math.max(15, input.pollIntervalSec || 60),
+        pollIntervalSec: Math.max(15, input.pollIntervalSec ?? 60),
         enabled: true,
         createdAt: now,
         updatedAt: now,
