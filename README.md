@@ -60,17 +60,26 @@ sourcefed daemon --http
 ```
 
 The HTTP daemon serves `POST /rpc`, `GET /events?target=...` (SSE push), and provider
-webhooks. It defaults to `http://127.0.0.1:18787`; configure clients with
-`SOURCEFED_DAEMON_URL`. When that variable is unset, the OpenCode and Pi adapters spawn
-one local HTTP daemon automatically (if none is running) and connect to it, so monitors
-persist across sessions and share a single registry.
+webhooks at `/webhooks/github` and `/webhooks/slack`. It defaults to
+`http://127.0.0.1:18787` (`SOURCEFED_DAEMON_HOST`/`SOURCEFED_DAEMON_PORT`, or `--host`/
+`--port`); configure clients with `SOURCEFED_DAEMON_URL` or `SOURCEFED_DAEMON_PORT`. When
+neither is set, the OpenCode and Pi adapters spawn one local HTTP daemon automatically (if
+none is running) and connect to it, so monitors persist across sessions and share a single
+registry. Binding to a non-loopback address requires `SOURCEFED_DAEMON_TOKEN`, which
+clients then send as a bearer token on `/rpc` and `/events`.
+
+When any webhook secret is configured (or `SOURCEFED_ENABLE_WEBHOOKS=1`), the daemon also
+starts a separate webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PORT`
+(default `127.0.0.1:8788`). Point a tunnel or reverse proxy at it (e.g. bind `0.0.0.0`) to
+receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; requests are
+authenticated by webhook signature (HMAC / Slack signing), not the daemon token.
 
 ## MCP
 
 Serve the daemon through MCP:
 
 ```sh
-sourcefed mcp --http      # MCP at http://127.0.0.1:18787/mcp
+sourcefed mcp --http      # MCP at http://127.0.0.1:18788/mcp (SOURCEFED_MCP_PORT)
 sourcefed mcp --stdio
 ```
 
@@ -85,13 +94,19 @@ New events use the current MCP 2026 resource-subscription flow:
 Manage monitors against a running daemon:
 
 ```sh
-sourcefed monitor list --target-id my-terminal
 sourcefed monitor create --source-type jira --issue-key ADEPT-43742 --name ADEPT-43742
+sourcefed monitor create --source-type github --repo owner/name --pr-number 42 --name pr-42
+sourcefed monitor create --source-type slack --thread-url https://myteam.slack.com/archives/C0123/p1700000000000000
+sourcefed monitor list
 sourcefed monitor status --id MONITOR_ID
 sourcefed monitor stop --id MONITOR_ID
 ```
 
-Set `SOURCEFED_DAEMON_URL` when the daemon is not at the default URL.
+Monitors belong to a target; the CLI defaults to `--target-kind cli` and `--target-id`
+`$SOURCEFED_TARGET_ID` (falling back to the hostname), so list/status/stop only see
+monitors created for that target. Slack accepts `--thread-url` or `--channel-id` +
+`--thread-ts`; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
+when the daemon is not at the default URL.
 
 ## Skills
 
@@ -121,15 +136,23 @@ The Pi extension follows the same rule and registers `sourcefed_monitor_*` tools
 
 Copy `.env.example` to a secure environment configuration and set only the integrations you
 use. Jira requires `SOURCEFED_JIRA_BASE_URL`, `ATLASSIAN_EMAIL`, and `ATLASSIAN_API_KEY`.
-GitHub and Slack webhook secrets are optional; without them those sources use polling.
+GitHub and Slack webhook secrets (`SOURCEFED_GITHUB_WEBHOOK_SECRET`,
+`SOURCEFED_SLACK_SIGNING_SECRET`) are optional; without them those sources use polling.
+With them, GitHub/Slack monitors prefer webhook delivery and fall back to polling when the
+webhook goes quiet.
 
-The JSON store defaults to `$XDG_STATE_HOME/sourcefed` or `~/.local/state/sourcefed`. The HTTP
-daemon also accepts provider webhooks at `/webhooks/github` and `/webhooks/slack`.
+The JSON store defaults to `$XDG_STATE_HOME/sourcefed` or `~/.local/state/sourcefed`;
+override with `SOURCEFED_STATE_DIR`. One daemon owns a state dir at a time (a lock file
+guards it), and adapters reuse an already-running daemon instead of spawning another.
 
 GitHub polling calls the GitHub REST and GraphQL APIs directly, authenticated with
-`GH_TOKEN` or `GITHUB_TOKEN`. Slack polling calls the Slack Web API directly, authenticated
-with `SOURCEFED_SLACK_TOKEN` (a bot or user token with read access to the target channels).
-Slack monitors read and notify only; they do not send messages.
+`GH_TOKEN` or `GITHUB_TOKEN` — without a token, GitHub monitors do not poll. Slack polling
+calls the Slack Web API directly, authenticated with `SOURCEFED_SLACK_TOKEN` (a bot or user
+token with read access to the target conversations — a bot must be a member of the channel
+or DM it monitors). Slack monitors read and notify only; they do not send messages.
+
+The first successful poll of a new monitor primes history: existing comments, reviews, and
+messages are recorded silently, and only activity after that point is delivered as events.
 
 ## Development
 
