@@ -3,6 +3,7 @@ import { OpenCodeBridge, setOpenCodeBridge } from "./bridge.ts"
 import monitorCreate from "./tools/monitor_create.ts"
 import monitorList from "./tools/monitor_list.ts"
 import monitorStatus from "./tools/monitor_status.ts"
+import monitorStart from "./tools/monitor_start.ts"
 import monitorStop from "./tools/monitor_stop.ts"
 
 export const Sourcefed: Plugin = async (input) => {
@@ -18,6 +19,7 @@ export const Sourcefed: Plugin = async (input) => {
       monitor_create: monitorCreate,
       monitor_list: monitorList,
       monitor_status: monitorStatus,
+      monitor_start: monitorStart,
       monitor_stop: monitorStop,
     },
   }

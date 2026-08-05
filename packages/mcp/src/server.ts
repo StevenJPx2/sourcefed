@@ -134,6 +134,20 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
   )
 
   server.registerTool(
+    "monitor_start",
+    {
+      description: "Start (re-enable) a stopped monitor owned by a target.",
+      inputSchema: statusSchema,
+      annotations: { destructiveHint: true, readOnlyHint: false, idempotentHint: true },
+    },
+    async ({ target, id }) => {
+      const result = await daemon.startMonitor(target, id)
+      if (!result.ok) return errorResult(result.error)
+      return jsonResult({ monitor: result.monitor })
+    },
+  )
+
+  server.registerTool(
     "monitor_events_ack",
     {
       description: "Acknowledge monitor events after the host has delivered them.",

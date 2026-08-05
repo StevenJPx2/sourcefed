@@ -107,6 +107,13 @@ export class SourcefedDaemon {
     return { ok: true, monitor: monitorView(started) }
   }
 
+  async removeMonitor(target: MonitorTarget, id: string): Promise<DaemonResult> {
+    const monitor = await ownedMonitor(this.service, id, target)
+    if (!monitor) return { ok: false, error: `monitor ${id} was not found for this target` }
+    await this.service.remove(id)
+    return { ok: true, removed: true }
+  }
+
   async readEvents(target: MonitorTarget): Promise<QueuedMonitorEvent[]> {
     return this.queue.read(target)
   }

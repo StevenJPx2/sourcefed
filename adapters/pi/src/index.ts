@@ -81,6 +81,14 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     execute: async (_toolCallID, input, _signal, _onUpdate, ctx) => toolResult(await call(ctx, "monitor_stop", input)),
   })
 
+  pi.registerTool({
+    name: "sourcefed_monitor_start",
+    label: "Sourcefed monitor start",
+    description: "Start (re-enable) a stopped Sourcefed monitor for the current Pi session.",
+    parameters: Type.Object({ id: Type.String() }),
+    execute: async (_toolCallID, input, _signal, _onUpdate, ctx) => toolResult(await call(ctx, "monitor_start", input)),
+  })
+
   pi.registerCommand("sourcefed", {
     description: "List Sourcefed monitors for the current Pi session",
     handler: async (_args, ctx) => {

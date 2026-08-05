@@ -32,5 +32,5 @@ export type MonitorView = {
 }
 
 export type DaemonResult =
-  | { ok: true; created?: boolean; monitor?: MonitorView; monitors?: MonitorView[]; events?: QueuedMonitorEvent[]; acknowledged?: string[] }
+  | { ok: true; created?: boolean; monitor?: MonitorView; monitors?: MonitorView[]; events?: QueuedMonitorEvent[]; acknowledged?: string[]; removed?: boolean }
   | { ok: false; error: string }

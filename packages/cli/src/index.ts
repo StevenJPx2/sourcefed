@@ -155,10 +155,21 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
       return
     }
 
+    if (subcommand === "sources") {
+      printResult(await client.request("daemon.sourceTypes"))
+      return
+    }
+
     const id = flag(args, "id")
-    if ((subcommand === "status" || subcommand === "stop" || subcommand === "start") && !id) throw new Error(`${subcommand} requires --id`)
+    if ((subcommand === "status" || subcommand === "stop" || subcommand === "start" || subcommand === "remove") && !id) throw new Error(`${subcommand} requires --id`)
     if (subcommand === "status" || subcommand === "stop" || subcommand === "start") {
       printResult(await client.request(`monitor.${subcommand}`, { target, id }))
+      return
+    }
+
+    if (subcommand === "remove") {
+      if (!args.includes("--yes")) throw new Error("remove is destructive: pass --yes to confirm")
+      printResult(await client.request("monitor.remove", { target, id }))
       return
     }
 
@@ -207,7 +218,7 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
     await client.close()
   }
 
-  throw new Error("monitor expects create, list, status, stop, start, events, or ack")
+  throw new Error("monitor expects create, list, status, stop, start, remove, events, ack, or sources")
 }
 
 function flag(args: string[], name: string): string | undefined {
@@ -222,7 +233,7 @@ function printResult(result: unknown): void {
 function printUsage(): void {
   console.error("sourcefed daemon [--port PORT] [--host HOST]")
   console.error("sourcefed mcp --stdio|--http [--port PORT]")
-  console.error("sourcefed monitor create|list|status|stop|start|events|ack [options]")
+  console.error("sourcefed monitor create|list|status|stop|start|remove|events|ack|sources [options]")
   console.error("sourcefed skills [list|get <name>|path [name]]")
 }
 

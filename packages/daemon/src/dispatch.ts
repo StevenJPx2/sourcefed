@@ -14,6 +14,8 @@ export async function dispatchDaemonRequest(daemon: SourcefedDaemon, method: str
       return daemon.stopMonitor(createTarget(params), String(params.id))
     case "monitor.start":
       return daemon.startMonitor(createTarget(params), String(params.id))
+    case "monitor.remove":
+      return daemon.removeMonitor(createTarget(params), String(params.id))
     case "monitor.events":
       return { events: await daemon.readEvents(createTarget(params)) }
     case "monitor.ack":
