@@ -8,3 +8,5 @@ node_modules/
 dist/
 dist-tests/
 .integration/
+/.harper-dictionary.txt
+.tui-build/

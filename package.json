@@ -39,8 +39,9 @@
     "build:tests": "node scripts/build-tests.mjs",
     "test": "node --test '**/dist-tests/**/*.test.js'",
     "typecheck": "tsc --noEmit",
-    "check": "node scripts/build.mjs && node scripts/build-tests.mjs && node --test '**/dist-tests/**/*.test.js' && tsc --noEmit",
+    "check": "node scripts/build.mjs && node scripts/build-tui.mjs && node scripts/build-tests.mjs && node --test '**/dist-tests/**/*.test.js' && tsc --noEmit",
     "sourcefed": "node packages/cli/dist/index.js",
-    "integration": "node scripts/integration.mjs"
+    "integration": "node scripts/integration.mjs",
+    "build:tui": "node scripts/build-tui.mjs"
   }
 }
