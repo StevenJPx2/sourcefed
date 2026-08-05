@@ -88,9 +88,9 @@ function toDisplay(monitor: Record<string, unknown>): DisplayMonitor {
 }
 
 const SOURCE_ICONS: Record<string, string> = {
-  jira: "Ｊ",
-  github: "Ｇ",
-  slack: "Ｓ",
+  jira: "󰌃",
+  github: "󰊤",
+  slack: "󰒱",
 }
 
 const SOURCE_LABELS: Record<string, string> = {

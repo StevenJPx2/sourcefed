@@ -146,9 +146,9 @@ function toDisplay(monitor) {
   };
 }
 var SOURCE_ICONS = {
-  jira: "\uFF2A",
-  github: "\uFF27",
-  slack: "\uFF33"
+  jira: "\u{F0303}",
+  github: "\u{F02A4}",
+  slack: "\u{F04B1}"
 };
 var SOURCE_LABELS = {
   jira: "Jira",
