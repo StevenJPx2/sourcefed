@@ -116,14 +116,14 @@ class HttpDaemonClient implements DaemonClient {
             markDrained()
           } catch (error) {
             console.error(`[sourcefed] event drain failed: ${error instanceof Error ? error.message : String(error)}`)
+            redrainRequested = true
           }
         } while (redrainRequested && passes < 3)
-        if (redrainRequested && passes >= 3) {
-          retryTimer ??= setTimeout(() => {
-            retryTimer = undefined
-            void performDrain()
-          }, 5_000)
-        }
+        // The drain is a catch-up nicety, not the subscription: if every attempt
+        // fails (e.g. transient network error or a daemon restart), still resolve
+        // so the live stream stays established — unacked events persist in the
+        // daemon queue and are picked up by the next reconnect/redrain.
+        if (redrainRequested) markDrained()
       } finally {
         draining = false
       }
