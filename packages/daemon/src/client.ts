@@ -159,12 +159,20 @@ class HttpDaemonClient implements DaemonClient {
             }
           }
         }
+        consecutiveFailures = 0
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.error(`[sourcefed] event stream ended: ${error instanceof Error ? error.message : String(error)}`)
+          consecutiveFailures += 1
+          // Log only the first failure of a burst; the reconnect loop is expected
+          // to recover, and logging every 500ms retry floods host UIs.
+          if (consecutiveFailures === 1) {
+            console.error(`[sourcefed] event stream ended: ${error instanceof Error ? error.message : String(error)}`)
+          }
         }
       }
     }
+
+    let consecutiveFailures = 0
 
     void (async () => {
       while (!controller.signal.aborted && callbacks?.has(onEvents)) {
