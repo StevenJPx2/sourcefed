@@ -49,6 +49,7 @@ function authorized(request: Request, token: string | undefined): boolean {
 
 function eventStream(daemon: SourcefedDaemon, target: MonitorTarget): Response {
   let unsubscribe: (() => void) | undefined
+  let keepalive: ReturnType<typeof setInterval> | undefined
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder()
@@ -56,8 +57,15 @@ function eventStream(daemon: SourcefedDaemon, target: MonitorTarget): Response {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "event", target, events })}\n\n`))
       })
       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "subscribed", target })}\n\n`))
+      // SSE comment frames reset client-side idle timeouts (undici's default
+      // bodyTimeout is 300s), so quiet streams stay connected indefinitely.
+      keepalive = setInterval(() => {
+        controller.enqueue(encoder.encode(": keepalive\n\n"))
+      }, 30_000)
+      keepalive.unref?.()
     },
     cancel() {
+      if (keepalive) clearInterval(keepalive)
       unsubscribe?.()
     },
   })

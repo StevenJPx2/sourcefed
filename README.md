@@ -1,8 +1,10 @@
-# Sourcefed
+# SourceFed
 
-Sourcefed is a host-independent monitor engine for Jira issues, GitHub pull requests, and
-Slack threads. It is detect-only: it never replies to Jira, GitHub, or Slack. The same core is
-available through a daemon, an MCP server, a CLI, a Pi extension, and an OpenCode plugin.
+SourceFed, is a tool that solves one problem: how does your agent get notified of changes from different sources like Slack, Jira, or GitHub? This solves it. Your agent can independently create monitors that keep up with updates from these sources.
+
+For example, after the agent creates a PR, it can create a monitor that will be notified of CI, reviews, comments, merge conflicts, and more. No more copy pasting or reminding the agent to check the PR status.
+
+It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel (I used watch them all the time as a kid [RIP]),
 
 ## Architecture
 
@@ -20,21 +22,21 @@ Jira / GitHub / Slack providers (@sourcefed/provider-*)
 
 Each package stands on its own:
 
-- **`@sourcefed/core`** — the monitor engine: domain model, poll/webhook transports,
+- **`@sourcefed/core`**: the monitor engine: domain model, poll/webhook transports,
   cursors, event queues, and the JSON store. Use it as an SDK in any runtime.
-- **`@sourcefed/provider-{jira,github,slack}`** — independent provider packages under
+- **`@sourcefed/provider-{jira,github,slack}`**: independent provider packages under
   `providers/`. A provider can live in its own repository; anything implementing the same
   monitor contract plugs in. The daemon composes the built-in registry (`SOURCE_MAP`) by
   importing the three provider packages directly.
-- **`@sourcefed/daemon`** — a transport-neutral application service over core + providers:
+- **`@sourcefed/daemon`**: a transport-neutral application service over core + providers:
   monitor commands, event reads/acknowledgement, subscriptions, and a small JSON protocol
   over stdio or HTTP. The MCP server, CLI, and host adapters are all daemon consumers.
-- **`@sourcefed/mcp`** — exposes the daemon through MCP tools and modern 2026 resource
+- **`@sourcefed/mcp`**: exposes the daemon through MCP tools and modern 2026 resource
   subscriptions for event push.
-- **`@sourcefed/cli`** — the `sourcefed` binary: runs the daemon (`daemon`),
+- **`@sourcefed/cli`**: the `sourcefed` binary: runs the daemon (`daemon`),
   serves MCP (`mcp --stdio|--http`), manages monitors from the shell, and bundles skills
   served via `sourcefed skills get` (agent-browser style).
-- **`@sourcefed/opencode`**, **`@sourcefed/pi`** — host adapters that drive the daemon client
+- **`@sourcefed/opencode`**, **`@sourcefed/pi`**: host adapters that drive the daemon client
   directly and route events into their sessions.
 
 The daemon owns polling, webhook handling, cursors, monitor identity, retries, and the shared
@@ -49,7 +51,7 @@ npm install
 ```
 
 The CLI builds to a single Node bundle (`packages/cli/dist/index.js`) with esbuild. The daemon,
-CLI, adapters, and tests all run on Node natively; no Bun runtime is required.
+CLI, adapters, and tests all run on Node natively.
 
 ## Daemon
 
@@ -108,7 +110,7 @@ monitors created for that target. Slack accepts `--thread-url` or `--channel-id`
 `--thread-ts`; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
 when the daemon is not at the default URL.
 
-## Skills
+### Skills
 
 The CLI bundles skills that teach agents how to use sourcefed, served in the agent-browser
 style: a thin discovery stub plus CLI-served content that always matches the installed version.
@@ -164,14 +166,14 @@ npm run check
 `npm run check` builds the workspace bundles, builds the test bundles, runs the suite under
 `node --test`, and typechecks. The bundled CLI is at `packages/cli/dist/index.js`.
 
-### Integration tests
+### Integration Tests
 
 `npm run integration` packs every workspace package with `npm pack`, installs the tarballs
 into an isolated consumer project, and runs real-life scenarios against the installed
-artifacts: store/queue/lock behavior (core), the daemon lifecycle with event delivery
+artifacts. store/queue/lock behavior (core), the daemon lifecycle with event delivery
 (daemon), the installed CLI binary driving a live daemon (cli), the MCP 2026
 resource-subscription flow against a real MCP HTTP server (mcp), and each provider polling
-against mocked upstreams through a live daemon tick (provider-*). The adapter scenarios
+against mocked upstreams through a live daemon tick (provider-\*). The adapter scenarios
 run in their real hosts when available: headless `opencode run` with the plugin installed
 and a temp state dir (skips when no model produces a tool call), and Pi RPC mode loading
 the extension directly (skips when the binary is absent).
