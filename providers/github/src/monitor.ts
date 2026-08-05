@@ -15,6 +15,10 @@ export class GithubMonitor extends Monitor<GithubSourceRecord> {
   }
 
   readonly key = (source: GithubSourceRecord): string => `github:${source.repo}#${source.prNumber}`
+  readonly icon = "󰊤"
+  readonly label = (source: GithubSourceRecord): string => `#${source.prNumber}`
+  readonly detail = (source: GithubSourceRecord): string => ` ${source.repo}#${source.prNumber}`
+  readonly describe = (source: GithubSourceRecord): string => `GitHub ${source.repo}#${source.prNumber}`
 
   build(input: MonitorCreateInput): SourceInput {
     if (input.repo && input.prNumber) return { type: "github", repo: input.repo, prNumber: input.prNumber }

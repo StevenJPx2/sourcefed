@@ -1,7 +1,9 @@
 import { JsonMonitorEventQueue, JsonMonitorStore, MonitorRuntime, type MonitorEventQueue, type MonitorRecord, type MonitorStore, type MonitorTarget, type QueuedMonitorEvent } from "@sourcefed/core"
 import { isSource, SOURCE_MAP, SOURCE_TYPES, sourceDefinition, sourceForInput, sourceForWebhookPath } from "./registry.ts"
-import type { DaemonCreateInput, DaemonResult, MonitorView, SourcefedDaemonOptions } from "./types"
+import type { DaemonCreateInput, DaemonResult, LogEntryView, MonitorView, SourcefedDaemonOptions } from "./types"
 import { NotifyingEventSink, targetKey } from "./utils"
+
+const DELIVERY_LOG_LIMIT = 100
 
 export class SourcefedDaemon {
   readonly runtime: MonitorRuntime
@@ -11,6 +13,7 @@ export class SourcefedDaemon {
   private readonly observers = new Set<(target: MonitorTarget) => void>()
   private readonly received = new Map<string, Map<(events: QueuedMonitorEvent[]) => void, Set<string>>>()
   private readonly emitChains = new Map<string, Promise<void>>()
+  private readonly deliveryLog = new Map<string, QueuedMonitorEvent[]>()
   private releaseExclusive?: () => Promise<void>
   private started = false
 
@@ -118,8 +121,15 @@ export class SourcefedDaemon {
     return this.queue.read(target)
   }
 
+  async readLogs(target: MonitorTarget): Promise<LogEntryView[]> {
+    return (this.deliveryLog.get(targetKey(target)) ?? []).map(logEntryView)
+  }
+
   async acknowledgeEvents(target: MonitorTarget, eventIDs: string[]): Promise<DaemonResult> {
+    const queued = await this.queue.read(target)
+    const acked = queued.filter((event) => eventIDs.includes(event.id))
     await this.queue.acknowledge(target, eventIDs)
+    if (acked.length > 0) this.appendLog(target, acked)
     const receivedByListener = this.received.get(targetKey(target))
     if (receivedByListener) {
       const ids = new Set(eventIDs)
@@ -153,6 +163,13 @@ export class SourcefedDaemon {
   observe(onEvent: (target: MonitorTarget) => void): () => void {
     this.observers.add(onEvent)
     return () => this.observers.delete(onEvent)
+  }
+
+  private appendLog(target: MonitorTarget, events: QueuedMonitorEvent[]): void {
+    const key = targetKey(target)
+    const existing = this.deliveryLog.get(key) ?? []
+    const merged = [...events.reverse(), ...existing] // newest first
+    this.deliveryLog.set(key, merged.slice(0, DELIVERY_LOG_LIMIT))
   }
 
   private emit(target: MonitorTarget): void {
@@ -199,6 +216,7 @@ export class SourcefedDaemon {
 }
 
 export function monitorView(monitor: MonitorRecord): MonitorView {
+  const definition = sourceDefinition(monitor.source)
   return {
     id: monitor.id,
     name: monitor.name,
@@ -209,6 +227,25 @@ export function monitorView(monitor: MonitorRecord): MonitorView {
     enabled: monitor.enabled,
     createdAt: monitor.createdAt,
     updatedAt: monitor.updatedAt,
+    icon: definition.icon,
+    label: definition.label(monitor.source),
+    detail: definition.detail(monitor.source),
+    describe: definition.describe(monitor.source),
+  }
+}
+
+export function logEntryView(queued: QueuedMonitorEvent): LogEntryView {
+  const definition = sourceDefinition(queued.event.source as { type: string })
+  return {
+    id: queued.id,
+    monitorID: queued.monitorID,
+    at: queued.event.at,
+    kind: queued.event.kind,
+    summary: queued.event.summary,
+    body: queued.event.body,
+    actionable: queued.event.actionable,
+    icon: definition.icon,
+    describe: definition.describe(queued.event.source as never),
   }
 }
 

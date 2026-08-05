@@ -29,8 +29,24 @@ export type MonitorView = {
   enabled: boolean
   createdAt: string
   updatedAt: string
+  icon: string
+  label: string
+  detail: string
+  describe: string
+}
+
+export type LogEntryView = {
+  id: string
+  monitorID: string
+  at: string
+  kind: string
+  summary: string
+  body?: string
+  actionable: boolean
+  icon: string
+  describe: string
 }
 
 export type DaemonResult =
-  | { ok: true; created?: boolean; monitor?: MonitorView; monitors?: MonitorView[]; events?: QueuedMonitorEvent[]; acknowledged?: string[]; removed?: boolean }
+  | { ok: true; created?: boolean; monitor?: MonitorView; monitors?: MonitorView[]; events?: QueuedMonitorEvent[]; logs?: LogEntryView[]; acknowledged?: string[]; removed?: boolean }
   | { ok: false; error: string }

@@ -12,6 +12,10 @@ const testSourceSchema = v.object({ type: v.literal("test"), key: v.string() })
 
 class TestMonitor extends Monitor<TestSource> {
   readonly key = (source: TestSource): string => source.key
+  readonly icon = "?"
+  readonly label = (source: TestSource): string => source.key
+  readonly detail = (): string => ""
+  readonly describe = (source: TestSource): string => `Test ${source.key}`
   readonly poll: PollMonitor<TestSource>
   readonly webhook: WebhookMonitor<TestSource>
 

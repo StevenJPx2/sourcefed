@@ -15,6 +15,10 @@ export class SlackMonitor extends Monitor<SlackSourceRecord> {
   }
 
   readonly key = (source: SlackSourceRecord): string => `slack:${source.channelId}#${source.threadTs}`
+  readonly icon = "󰒱"
+  readonly label = (): string => "thread"
+  readonly detail = (source: SlackSourceRecord): string => ` ${source.channelId}`
+  readonly describe = (source: SlackSourceRecord): string => `Slack ${source.channelId} thread ${source.threadTs}`
 
   build(input: MonitorCreateInput): SourceInput {
     if (input.channelId && input.threadTs) return { type: "slack", channelId: input.channelId, threadTs: input.threadTs }

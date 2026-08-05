@@ -2,7 +2,9 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
+import type { LogEntryView, MonitorView } from "@sourcefed/daemon"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
+import { logLines, monitorLines, showSourcefedDialog } from "./dialog.ts"
 
 const STATUS_REFRESH_MS = 3_000
 
@@ -92,8 +94,22 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   pi.registerCommand("sourcefed", {
     description: "List Sourcefed monitors for the current Pi session",
     handler: async (_args, ctx) => {
-      const result = await call(ctx, "monitor_list", {})
-      ctx.ui.notify(JSON.stringify(result), "info")
+      const result = (await call(ctx, "monitor_list", {})) as { monitors?: MonitorView[] }
+      const monitors = Array.isArray(result?.monitors) ? result.monitors : []
+      await ctx.ui.custom((tui, theme, _keybindings, done) =>
+        showSourcefedDialog(tui, theme, done, `Sourcefed monitors (${monitors.length})`, monitorLines(monitors, theme)),
+      )
+    },
+  })
+
+  pi.registerCommand("sourcefed logs", {
+    description: "Show recent Sourcefed notifications for the current Pi session",
+    handler: async (_args, ctx) => {
+      const result = (await call(ctx, "monitor_logs", {})) as { logs?: LogEntryView[] }
+      const logs = Array.isArray(result?.logs) ? result.logs : []
+      await ctx.ui.custom((tui, theme, _keybindings, done) =>
+        showSourcefedDialog(tui, theme, done, `Sourcefed notifications (${logs.length})`, logLines(logs, theme)),
+      )
     },
   })
 

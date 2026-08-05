@@ -13,6 +13,12 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
   abstract readonly key: (source: TSource) => string
   abstract build(input: MonitorCreateInput): SourceInput
 
+  /** Provider-specific display surface (nerd font icon, labels, describe). */
+  abstract readonly icon: string
+  abstract readonly label: (source: TSource) => string
+  abstract readonly detail: (source: TSource) => string
+  abstract readonly describe: (source: TSource) => string
+
   readonly poll?: PollMonitor<TSource>
   readonly webhook?: WebhookMonitor<TSource>
 

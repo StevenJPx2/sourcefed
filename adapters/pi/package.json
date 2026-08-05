@@ -6,6 +6,7 @@
   "type": "module",
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
     "@sourcefed/cli": "*",
     "@sourcefed/core": "*",
     "@sourcefed/daemon": "*",

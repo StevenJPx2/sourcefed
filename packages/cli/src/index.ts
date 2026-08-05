@@ -4,7 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { serveStdio } from "@modelcontextprotocol/server/stdio"
-import { connectDaemonClient, defaultDaemonUrl, handleDaemonHttpRequest, serveHttp, SourcefedDaemon, type DaemonClientOptions, type HttpServer } from "@sourcefed/daemon"
+import { connectDaemonClient, defaultDaemonUrl, handleDaemonHttpRequest, serveHttp, SourcefedDaemon, type DaemonClientOptions, type HttpServer, type LogEntryView, type MonitorView } from "@sourcefed/daemon"
 import { createSourcefedMcp, createSourcefedStdio } from "@sourcefed/mcp"
 import { runSkillsCommand } from "./skills"
 
@@ -151,7 +151,14 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
   const client = await connectDaemonClient(clientOptions)
   try {
     if (subcommand === "list") {
-      printResult(await client.request("monitor.list", { target }))
+      const result = (await client.request("monitor.list", { target })) as { ok?: boolean; monitors?: MonitorView[] }
+      printMonitors(result?.monitors ?? [])
+      return
+    }
+
+    if (subcommand === "logs") {
+      const result = (await client.request("monitor.logs", { target })) as { logs?: LogEntryView[] }
+      printLogs(result?.logs ?? [])
       return
     }
 
@@ -218,12 +225,54 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
     await client.close()
   }
 
-  throw new Error("monitor expects create, list, status, stop, start, remove, events, ack, or sources")
+  throw new Error("monitor expects create, list, status, stop, start, remove, events, ack, logs, or sources")
 }
 
 function flag(args: string[], name: string): string | undefined {
   const index = args.indexOf(`--${name}`)
   return index >= 0 ? args[index + 1] : undefined
+}
+
+function printMonitors(monitors: MonitorView[]): void {
+  if (monitors.length === 0) {
+    console.log(dim("no monitors for this target"))
+    return
+  }
+  for (const monitor of monitors) {
+    const status = monitor.enabled ? green("enabled") : red("stopped")
+    const delivery = dim(monitor.delivery)
+    console.log(`${monitor.icon} ${monitor.describe}  ${status}  ${delivery}`)
+  }
+}
+
+function printLogs(logs: LogEntryView[]): void {
+  if (logs.length === 0) {
+    console.log(dim("no notifications sent yet"))
+    return
+  }
+  for (const entry of logs) {
+    const time = dim(new Date(entry.at).toLocaleString())
+    const marker = entry.actionable ? yellow("▶") : dim("·")
+    console.log(`${marker} ${entry.icon} ${time} ${entry.describe}`)
+    console.log(`    ${entry.summary}`)
+    if (entry.body) console.log(dim(`    ${entry.body}`))
+  }
+}
+
+function green(text: string): string {
+  return `\x1b[32m${text}\x1b[0m`
+}
+
+function red(text: string): string {
+  return `\x1b[31m${text}\x1b[0m`
+}
+
+function yellow(text: string): string {
+  return `\x1b[33m${text}\x1b[0m`
+}
+
+function dim(text: string): string {
+  return `\x1b[2m${text}\x1b[0m`
 }
 
 function printResult(result: unknown): void {
@@ -233,7 +282,7 @@ function printResult(result: unknown): void {
 function printUsage(): void {
   console.error("sourcefed daemon [--port PORT] [--host HOST]")
   console.error("sourcefed mcp --stdio|--http [--port PORT]")
-  console.error("sourcefed monitor create|list|status|stop|start|remove|events|ack|sources [options]")
+  console.error("sourcefed monitor create|list|status|stop|start|remove|events|ack|logs|sources [options]")
   console.error("sourcefed skills [list|get <name>|path [name]]")
 }
 
