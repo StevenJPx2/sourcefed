@@ -4,6 +4,14 @@ import { Type } from "typebox"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 
+const STATUS_REFRESH_MS = 3_000
+
+const SOURCE_ICONS: Record<string, string> = {
+  jira: "󰌃",
+  github: "󰊤",
+  slack: "󰒱",
+}
+
 type PiTarget = { kind: "pi-session"; id: string }
 
 export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void> {
@@ -11,12 +19,20 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   let client: DaemonClient | undefined
   let lastAttemptAt = 0
   let lastError: string | undefined
+  let statusTimer: ReturnType<typeof setInterval> | undefined
+  let statusCtx: ExtensionContext | undefined
 
   pi.on("session_start", async (_event, ctx) => {
+    statusCtx = ctx
     await ensureTarget(ctx)
+    void refreshStatus()
+    statusTimer = setInterval(() => void refreshStatus(), STATUS_REFRESH_MS)
   })
 
   pi.on("session_shutdown", async () => {
+    if (statusTimer) clearInterval(statusTimer)
+    statusTimer = undefined
+    statusCtx = undefined
     for (const listener of listeners.values()) await listener.close()
     listeners.clear()
     await client?.close()
@@ -72,6 +88,25 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
       ctx.ui.notify(JSON.stringify(result), "info")
     },
   })
+
+  async function refreshStatus(): Promise<void> {
+    const ctx = statusCtx
+    if (!ctx) return
+    const result = (await call(ctx, "monitor_list", {})) as { monitors?: unknown[] }
+    const monitors = Array.isArray(result?.monitors) ? result.monitors : []
+    if (monitors.length === 0) {
+      ctx.ui.setStatus("sourcefed", undefined)
+      return
+    }
+    const icons = monitors.map((monitor) => {
+      const record = monitor as Record<string, unknown>
+      const source = (record.source ?? {}) as Record<string, unknown>
+      const icon = SOURCE_ICONS[String(source.type ?? "")] ?? "?"
+      return ctx.ui.theme.fg(record.enabled ? "success" : "error", icon)
+    })
+    const line = monitors.length > 1 ? `${icons.join(" ")} (${monitors.length})` : icons.join(" ")
+    ctx.ui.setStatus("sourcefed", line)
+  }
 
   async function call(ctx: ExtensionContext, name: string, args: Record<string, unknown>): Promise<unknown> {
     const target = await ensureTarget(ctx)
