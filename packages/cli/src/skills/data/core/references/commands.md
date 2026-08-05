@@ -3,7 +3,7 @@
 ## CLI
 
 ```text
-sourcefed daemon --http [--port 18787]       Run the shared daemon (rpc, events, webhooks)
+sourcefed daemon [--port 18787]       Run the shared daemon (rpc, events, webhooks)
 sourcefed mcp --stdio                       Serve MCP over stdio
 sourcefed mcp --http [--port 18788]          Serve MCP over HTTP at /mcp
 sourcefed monitor create [options]          Create a monitor via a running daemon

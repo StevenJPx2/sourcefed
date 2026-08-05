@@ -11,7 +11,7 @@ export function defaultDaemonUrl(): string {
 export function daemonCommand(cliEntryPath: string): { command: string; args: string[] } {
   return {
     command: nodeExecutable(),
-    args: [cliEntryPath, "daemon", "--http"],
+    args: [cliEntryPath, "daemon"],
   }
 }
 

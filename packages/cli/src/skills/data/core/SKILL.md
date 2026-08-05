@@ -60,7 +60,7 @@ Sourcefed runs as a shared HTTP daemon (`@sourcefed/daemon`) that owns
 polling, webhooks, cursors, and state. The MCP server, the CLI, and host
 adapters (OpenCode, Pi) are all consumers of the daemon.
 
-- `sourcefed daemon --http [--port 18787]` — run the shared daemon (rpc, events, webhooks).
+- `sourcefed daemon [--port 18787]` — run the shared daemon (rpc, events, webhooks).
 - `sourcefed mcp --stdio|--http` — expose the daemon through MCP.
 - `sourcefed monitor create|list|status|stop` — drive a running daemon from the shell.
 

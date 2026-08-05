@@ -31,7 +31,7 @@ Each package stands on its own:
   over stdio or HTTP. The MCP server, CLI, and host adapters are all daemon consumers.
 - **`@sourcefed/mcp`** — exposes the daemon through MCP tools and modern 2026 resource
   subscriptions for event push.
-- **`@sourcefed/cli`** — the `sourcefed` binary: runs the daemon (`daemon --http`),
+- **`@sourcefed/cli`** — the `sourcefed` binary: runs the daemon (`daemon`),
   serves MCP (`mcp --stdio|--http`), manages monitors from the shell, and bundles skills
   served via `sourcefed skills get` (agent-browser style).
 - **`@sourcefed/opencode`**, **`@sourcefed/pi`** — host adapters that drive the daemon client
@@ -56,7 +56,7 @@ CLI, adapters, and tests all run on Node natively; no Bun runtime is required.
 Start a shared local HTTP daemon:
 
 ```sh
-sourcefed daemon --http
+sourcefed daemon
 ```
 
 The HTTP daemon serves `POST /rpc`, `GET /events?target=...` (SSE push), and provider

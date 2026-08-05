@@ -5,7 +5,7 @@ const CLI = path.resolve("node_modules/@sourcefed/cli/dist/index.js")
 const dir = await tempDir("sourcefed-it-cli-")
 const url = "http://127.0.0.1:18920"
 const env = { SOURCEFED_STATE_DIR: dir, SOURCEFED_DAEMON_URL: url }
-const daemonProcess = startProcess(process.execPath, [CLI, "daemon", "--http", "--port", "18920"], { env, silent: true })
+const daemonProcess = startProcess(process.execPath, [CLI, "daemon", "--port", "18920"], { env, silent: true })
 try {
   await waitForReachable(url)
 
@@ -28,7 +28,7 @@ try {
   assert(guide.includes("# Sourcefed core"), "skills get serves content")
 
   await daemonProcess.stop()
-  const restarted = startProcess(process.execPath, [CLI, "daemon", "--http", "--port", "18920"], { env, silent: true })
+  const restarted = startProcess(process.execPath, [CLI, "daemon", "--port", "18920"], { env, silent: true })
   await waitForReachable(url)
   await restarted.stop()
   console.log("cli: installed binary daemon + monitor CRUD + skills + lock release — ok")

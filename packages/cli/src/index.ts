@@ -42,11 +42,6 @@ function createDaemon(): SourcefedDaemon {
 }
 
 async function runDaemon(args: string[]): Promise<void> {
-  const mode = args[0] ?? "--http"
-  if (mode !== "--http") {
-    throw new Error("daemon expects --http")
-  }
-
   const port = Number(flag(args, "port") ?? process.env.SOURCEFED_DAEMON_PORT ?? 18787)
   const hostname = flag(args, "host") ?? process.env.SOURCEFED_DAEMON_HOST ?? "127.0.0.1"
   const token = process.env.SOURCEFED_DAEMON_TOKEN
@@ -213,7 +208,7 @@ function printResult(result: unknown): void {
 }
 
 function printUsage(): void {
-  console.error("sourcefed daemon --http [--port PORT]")
+  console.error("sourcefed daemon [--port PORT] [--host HOST]")
   console.error("sourcefed mcp --stdio|--http [--port PORT]")
   console.error("sourcefed monitor create|list|status|stop [options]")
   console.error("sourcefed skills [list|get <name>|path [name]]")
