@@ -104,6 +104,7 @@ sourcefed monitor status --id MONITOR_ID
 sourcefed monitor events
 sourcefed monitor ack --event-id EVENT_ID
 sourcefed monitor stop --id MONITOR_ID
+sourcefed monitor start --id MONITOR_ID
 ```
 
 Monitors belong to a target; the CLI defaults to `--target-kind cli` and `--target-id`

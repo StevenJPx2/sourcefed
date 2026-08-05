@@ -34,6 +34,10 @@ describe("MonitorService", () => {
     assert.equal("error" in stopped ? stopped : stopped.enabled, false)
     assert.partialDeepStrictEqual(await service.get(created.monitor.id), { enabled: false })
 
+    const reenabled = await service.start(created.monitor.id)
+    assert.equal("error" in reenabled ? reenabled : reenabled.enabled, true)
+    assert.partialDeepStrictEqual(await service.get(created.monitor.id), { enabled: true })
+
     await service.remove(created.monitor.id)
     assert.equal(await service.get(created.monitor.id), undefined)
   })

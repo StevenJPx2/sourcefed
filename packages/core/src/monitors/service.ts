@@ -66,6 +66,16 @@ export class MonitorService {
     })
   }
 
+  async start(id: string): Promise<MonitorRecord | { error: string }> {
+    return this.transact((registry) => {
+      const monitor = registry.monitors.find((entry) => entry.id === id)
+      if (!monitor) return { error: `monitor ${id} was not found` }
+      monitor.enabled = true
+      monitor.updatedAt = new Date().toISOString()
+      return monitor
+    })
+  }
+
   async remove(id: string): Promise<void> {
     await this.transact((registry) => {
       registry.monitors = registry.monitors.filter((monitor) => monitor.id !== id)

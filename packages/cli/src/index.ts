@@ -156,8 +156,8 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
     }
 
     const id = flag(args, "id")
-    if ((subcommand === "status" || subcommand === "stop") && !id) throw new Error(`${subcommand} requires --id`)
-    if (subcommand === "status" || subcommand === "stop") {
+    if ((subcommand === "status" || subcommand === "stop" || subcommand === "start") && !id) throw new Error(`${subcommand} requires --id`)
+    if (subcommand === "status" || subcommand === "stop" || subcommand === "start") {
       printResult(await client.request(`monitor.${subcommand}`, { target, id }))
       return
     }
@@ -207,7 +207,7 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
     await client.close()
   }
 
-  throw new Error("monitor expects create, list, status, stop, events, or ack")
+  throw new Error("monitor expects create, list, status, stop, start, events, or ack")
 }
 
 function flag(args: string[], name: string): string | undefined {
@@ -222,7 +222,7 @@ function printResult(result: unknown): void {
 function printUsage(): void {
   console.error("sourcefed daemon [--port PORT] [--host HOST]")
   console.error("sourcefed mcp --stdio|--http [--port PORT]")
-  console.error("sourcefed monitor create|list|status|stop|events|ack [options]")
+  console.error("sourcefed monitor create|list|status|stop|start|events|ack [options]")
   console.error("sourcefed skills [list|get <name>|path [name]]")
 }
 

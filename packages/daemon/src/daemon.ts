@@ -99,6 +99,14 @@ export class SourcefedDaemon {
     return { ok: true, monitor: monitorView(stopped) }
   }
 
+  async startMonitor(target: MonitorTarget, id: string): Promise<DaemonResult> {
+    const monitor = await ownedMonitor(this.service, id, target)
+    if (!monitor) return { ok: false, error: `monitor ${id} was not found for this target` }
+    const started = await this.service.start(id)
+    if ("error" in started) return { ok: false, error: started.error }
+    return { ok: true, monitor: monitorView(started) }
+  }
+
   async readEvents(target: MonitorTarget): Promise<QueuedMonitorEvent[]> {
     return this.queue.read(target)
   }
