@@ -101,6 +101,8 @@ sourcefed monitor create --source-type github --repo owner/name --pr-number 42 -
 sourcefed monitor create --source-type slack --thread-url https://myteam.slack.com/archives/C0123/p1700000000000000
 sourcefed monitor list
 sourcefed monitor status --id MONITOR_ID
+sourcefed monitor events
+sourcefed monitor ack --event-id EVENT_ID
 sourcefed monitor stop --id MONITOR_ID
 ```
 
