@@ -1,22 +1,16 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent"
-import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
-import { SOURCE_TYPES, connectSourcefedClient, listenForTarget, localDaemonEnvironment, localMcpCommand, parseToolResult } from "@sourcefed/mcp"
+import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 
 type PiTarget = { kind: "pi-session"; id: string }
 
 export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void> {
-  const local = localMcpCommand(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..", "apps/cli/src/index.ts"))
-  const client = await connectSourcefedClient({
-    name: "sourcefed-pi",
-    url: process.env.SOURCEFED_MCP_URL,
-    command: local.command,
-    args: local.args,
-    env: localDaemonEnvironment("pi"),
-  })
   const listeners = new Map<string, { close(): Promise<void> }>()
+  let client: DaemonClient | undefined
+  let lastAttemptAt = 0
+  let lastError: string | undefined
 
   pi.on("session_start", async (_event, ctx) => {
     await ensureTarget(ctx)
@@ -25,7 +19,8 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   pi.on("session_shutdown", async () => {
     for (const listener of listeners.values()) await listener.close()
     listeners.clear()
-    await client.close()
+    await client?.close()
+    client = undefined
   })
 
   pi.registerTool({
@@ -34,7 +29,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     description: "Create or reuse a Sourcefed monitor for the current Pi session.",
     parameters: Type.Object({
       name: Type.String(),
-      sourceType: Type.Unsafe<string>({ type: "string", enum: SOURCE_TYPES }),
+      sourceType: Type.Unsafe<string>({ type: "string", enum: ["jira", "github", "slack"] }),
       issueKey: Type.Optional(Type.String()),
       repo: Type.Optional(Type.String()),
       prNumber: Type.Optional(Type.Number()),
@@ -74,28 +69,54 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     description: "List Sourcefed monitors for the current Pi session",
     handler: async (_args, ctx) => {
       const result = await call(ctx, "monitor_list", {})
-      ctx.ui.notify(JSON.stringify(parseToolResult(result)), "info")
+      ctx.ui.notify(JSON.stringify(result), "info")
     },
   })
 
   async function call(ctx: ExtensionContext, name: string, args: Record<string, unknown>): Promise<unknown> {
     const target = await ensureTarget(ctx)
-    return client.callTool({ name, arguments: { ...args, target } })
+    if (!client) return { ok: false, error: `sourcefed daemon unavailable: ${lastError ?? "not started"}` }
+    return client.request(name.replace(/_/g, "."), { ...args, target })
   }
 
-  async function ensureTarget(ctx: ExtensionContext): Promise<PiTarget> {
+  async function ensureTarget(ctx: ExtensionContext): Promise<PiTarget | undefined> {
+    await ensureClient()
     const target = { kind: "pi-session" as const, id: ctx.sessionManager.getSessionId() }
-    if (!listeners.has(target.id)) {
-      const listener = await listenForTarget(client, target, async (events) => {
-        await routeEvents(pi, events)
+    if (client && !listeners.has(target.id)) {
+      const listener = await client.subscribe(target, async (events) => {
+        await routeEvents(pi, events, target, client!)
       })
       listeners.set(target.id, listener)
     }
     return target
   }
+
+  async function ensureClient(): Promise<void> {
+    if (client) return
+    if (Date.now() - lastAttemptAt < 15_000) return
+    lastAttemptAt = Date.now()
+    try {
+      const url = process.env.SOURCEFED_DAEMON_URL
+      if (url) {
+        client = await connectDaemonClient({ name: "sourcefed-pi", url })
+      } else {
+        const local = daemonCommand(cliEntry())
+        const spawned = await spawnLocalDaemon({
+          command: local.command,
+          args: local.args,
+          env: daemonEnvironment(),
+        })
+        client = await connectDaemonClient({ name: "sourcefed-pi", url: spawned.url })
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error)
+      console.error(`[sourcefed] daemon unavailable: ${lastError}`)
+    }
+  }
 }
 
-async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[]): Promise<void> {
+async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[], target: PiTarget, daemon: DaemonClient): Promise<void> {
+  const delivered: QueuedMonitorEvent[] = []
   for (const queued of events) {
     await pi.sendMessage({
       customType: "sourcefed-monitor",
@@ -103,12 +124,23 @@ async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[]): Prom
       display: true,
       details: { actionable: queued.event.actionable, eventID: queued.id },
     }, { triggerTurn: queued.event.actionable, deliverAs: "steer" })
+    delivered.push(queued)
   }
+  if (delivered.length > 0) {
+    await daemon.request("monitor.ack", {
+      target,
+      eventIDs: delivered.map((queued) => queued.id),
+    })
+  }
+}
+
+function cliEntry(): string {
+  return fileURLToPath(import.meta.resolve("@sourcefed/cli"))
 }
 
 function toolResult(result: unknown) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(parseToolResult(result)) }],
+    content: [{ type: "text" as const, text: JSON.stringify(result) }],
     details: {},
   }
 }
