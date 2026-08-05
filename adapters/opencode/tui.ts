@@ -1,8 +1,8 @@
 import type { TuiPluginModule } from "@opencode-ai/plugin/tui"
-import { connectSourcefedClient, parseToolResult } from "@sourcefed/mcp"
+import { connectDaemonClient, defaultDaemonUrl, type DaemonClient } from "@sourcefed/daemon"
 
 const sourcefedTui: TuiPluginModule["tui"] = async (api) => {
-  let client: Awaited<ReturnType<typeof connectSourcefedClient>> | undefined
+  let client: DaemonClient | undefined
 
   const unregister = api.command?.register(() => [{
     value: "sourcefed",
@@ -16,15 +16,12 @@ const sourcefedTui: TuiPluginModule["tui"] = async (api) => {
         api.ui.toast({ variant: "warning", message: "No active OpenCode session" })
         return
       }
-      if (!process.env.SOURCEFED_MCP_URL) {
-        api.ui.toast({ variant: "warning", message: "Set SOURCEFED_MCP_URL to use the Sourcefed TUI" })
-        return
-      }
-      client ??= await connectSourcefedClient({ name: "sourcefed-opencode-tui", url: process.env.SOURCEFED_MCP_URL })
-      const result = parseToolResult(await client.callTool({
-        name: "monitor_list",
-        arguments: { target: { kind: "opencode-session", id: sessionID } },
-      }))
+      const url = process.env.SOURCEFED_DAEMON_URL ?? defaultDaemonUrl()
+      client ??= await connectDaemonClient({
+        name: "sourcefed-opencode-tui",
+        url,
+      })
+      const result = await client.request("monitor.list", { target: { kind: "opencode-session", id: sessionID } })
       const message = JSON.stringify(result, null, 2)
       dialog?.replace(() => api.ui.DialogAlert({ title: "Sourcefed monitors", message, onConfirm: () => dialog.clear() }))
     },

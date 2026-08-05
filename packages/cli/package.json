@@ -1,0 +1,25 @@
+{
+  "name": "@sourcefed/cli",
+  "version": "0.2.0",
+  "description": "Sourcefed command-line interface, daemon process, and bundled skills.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "sourcefed": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "@sourcefed/daemon": "*",
+    "@sourcefed/mcp": "*"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

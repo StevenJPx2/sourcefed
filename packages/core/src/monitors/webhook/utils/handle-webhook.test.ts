@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import type { Monitor } from "../../monitor.ts"
 import type { MonitorContext } from "#sourcefed/types"
 import { handleWebhook } from "./handle-webhook.ts"
@@ -16,6 +17,6 @@ describe("handleWebhook", () => {
     })
 
     const response = await handleWebhook(request, context)
-    expect(response.status).toBe(413)
+    assert.equal(response.status, 413)
   })
 })

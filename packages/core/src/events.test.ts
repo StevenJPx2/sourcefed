@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import { InMemoryMonitorEventQueue } from "./events.ts"
 
 const monitor = {
@@ -28,11 +29,11 @@ describe("InMemoryMonitorEventQueue", () => {
 
     const first = await queue.enqueue({ monitor, event })
     const second = await queue.enqueue({ monitor, event })
-    expect(second.id).toBe(first.id)
-    expect(await queue.read(monitor.target)).toHaveLength(1)
-    expect(await queue.read({ kind: "other", id: "session-2" })).toHaveLength(0)
+    assert.equal(second.id, first.id)
+    assert.equal((await queue.read(monitor.target)).length, 1)
+    assert.equal((await queue.read({ kind: "other", id: "session-2" })).length, 0)
 
     await queue.acknowledge(monitor.target, [first.id])
-    expect(await queue.read(monitor.target)).toHaveLength(0)
+    assert.equal((await queue.read(monitor.target)).length, 0)
   })
 })

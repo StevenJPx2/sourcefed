@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import { InMemoryMonitorEventQueue, QueueMonitorEventSink } from "./events.ts"
 import { MonitorRuntime } from "./runtime.ts"
 import { InMemoryMonitorStore } from "./storage/in-memory-monitor-store.ts"
@@ -15,8 +16,8 @@ describe("MonitorRuntime", () => {
     })
 
     await runtime.start()
-    expect(await runtime.service.list()).toEqual([])
-    runtime.stop()
+    assert.deepEqual(await runtime.service.list(), [])
+    await runtime.stop()
   })
 
   test("delegates tick work to the registered source", async () => {
@@ -38,6 +39,6 @@ describe("MonitorRuntime", () => {
     })
 
     await runtime.tick()
-    expect(ticks).toBe(1)
+    assert.equal(ticks, 1)
   })
 })

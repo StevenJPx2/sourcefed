@@ -14,7 +14,7 @@ export async function tick(context: MonitorContext): Promise<void> {
       await source.tick(context, record)
     } catch (error) {
       console.error(`[sourcefed] monitor ${record.id} poll failed:`, error)
-      await context.service.updateCursor(record, "__lastPolledAt", Date.now()).catch((updateError) => {
+      await context.service.updateCursor(record, "__lastAttemptAt", Date.now()).catch((updateError) => {
         console.error(`[sourcefed] monitor ${record.id} poll timestamp update failed:`, updateError)
       })
     }

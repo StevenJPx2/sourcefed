@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import * as v from "valibot"
 import { InMemoryMonitorEventQueue, QueueMonitorEventSink } from "../events.ts"
 import type { MonitorContext, MonitorEvent, MonitorEventSink } from "#sourcefed/types"
@@ -64,11 +65,11 @@ describe("Monitor transport orchestration", () => {
     const monitor = new TestMonitor(async () => ({ cursor: {}, events: [] }))
     const current = await createRecord(service)
 
-    expect(monitor.resolveDelivery(current)).toBe("webhook")
-    expect(monitor.resolveDelivery({ ...current, delivery: "webhook" })).toBe("webhook")
+    assert.equal(monitor.resolveDelivery(current), "webhook")
+    assert.equal(monitor.resolveDelivery({ ...current, delivery: "webhook" }), "webhook")
     const stale = { ...current, delivery: "webhook" as const, cursors: { __webhookHeartbeatAt: Date.now() - 120_000 } }
-    expect(monitor.resolveDelivery(stale)).toBe("poll")
-    expect(monitor.resolveDelivery({ ...stale, delivery: "poll" })).toBe("poll")
+    assert.equal(monitor.resolveDelivery(stale), "poll")
+    assert.equal(monitor.resolveDelivery({ ...stale, delivery: "poll" }), "poll")
   })
 
   test("routes poll events once and persists the source cursor", async () => {
@@ -79,9 +80,9 @@ describe("Monitor transport orchestration", () => {
     const sink: MonitorEventSink = { deliver: async ({ event: next }) => { delivered.push(next); return { ok: true } } }
     const record = await createRecord(service)
 
-    expect(await monitor.poll.run(context(service, sink), monitor, record)).toBe(1)
-    expect(delivered).toHaveLength(1)
-    expect((await service.get(record.id))?.cursors[source.key]).toEqual({ seen: true })
+    assert.equal(await monitor.poll.run(context(service, sink), monitor, record), 1)
+    assert.equal(delivered.length, 1)
+    assert.deepEqual((await service.get(record.id))?.cursors[source.key], { seen: true })
   })
 
   test("prevents concurrent polls for the same monitor", async () => {
@@ -100,7 +101,7 @@ describe("Monitor transport orchestration", () => {
     const record = await createRecord(service)
     const first = monitor.poll.run(context(service, sink), monitor, record)
     await began
-    expect(await monitor.poll.run(context(service, sink), monitor, record)).toBe(0)
+    assert.equal(await monitor.poll.run(context(service, sink), monitor, record), 0)
     release()
     await first
   })
@@ -120,11 +121,11 @@ describe("Monitor transport orchestration", () => {
     }
     const current = context(service, sink)
 
-    expect(await monitor.webhook.deliver(current, monitor, record, event({ type: "test", key: "other" }), "wrong")).toBe(0)
-    expect(await monitor.webhook.deliver(current, monitor, record, event({ type: "test", key: "issue-1" }), "delivery-1")).toBe(0)
+    assert.equal(await monitor.webhook.deliver(current, monitor, record, event({ type: "test", key: "other" }), "wrong"), 0)
+    assert.equal(await monitor.webhook.deliver(current, monitor, record, event({ type: "test", key: "issue-1" }), "delivery-1"), 0)
     shouldSucceed = true
-    expect(await monitor.webhook.retryPending(current, monitor, record)).toBe(1)
-    expect(delivered).toHaveLength(1)
-    expect((await service.get(record.id))?.cursors["webhook:delivery-1"]).toBe(true)
+    assert.equal(await monitor.webhook.retryPending(current, monitor, record), 1)
+    assert.equal(delivered.length, 1)
+    assert.equal((await service.get(record.id))?.cursors["webhook:delivery-1"], true)
   })
 })

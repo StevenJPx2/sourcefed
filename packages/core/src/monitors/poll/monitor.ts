@@ -22,6 +22,9 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
       const cursorKey = source.key(sourceRecord)
       const result = await this.options.run(sourceRecord, fresh.cursors[cursorKey])
 
+      const current = await context.service.get(record.id)
+      if (!current || !current.enabled) return 0
+
       const parsedRoutedIds = v.safeParse(RoutedEventCursorSchema, fresh.cursors.__routedEventIds)
       let routedIds: string[] = []
       if (parsedRoutedIds.success) routedIds = parsedRoutedIds.output
@@ -42,7 +45,10 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
         return 0
       }
 
-      await context.service.updateCursor(fresh, cursorKey, result.cursor)
+      await context.service.updateCursorValue(fresh, cursorKey, (current) => {
+        if (this.options.mergeCursor) return this.options.mergeCursor(current, result.cursor)
+        return result.cursor
+      })
       await context.service.updateCursor(fresh, "__routedEventIds", [])
       if (result.terminal) await context.service.remove(fresh.id)
       await context.service.updateCursor(fresh, "__lastPolledAt", Date.now())
@@ -58,4 +64,23 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
     if (lastPolledAt > 0) return now - lastPolledAt > intervalMs
     return now - Date.parse(record.createdAt) > intervalMs
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+export function mergeCursors(current: unknown, result: unknown): unknown {
+  if (Array.isArray(current) && Array.isArray(result)) {
+    return [...new Set([...current, ...result])]
+  }
+  if (isRecord(current) && isRecord(result)) {
+    const merged: Record<string, unknown> = { ...current }
+    for (const [key, value] of Object.entries(result)) {
+      if (value === undefined) continue
+      merged[key] = key in current ? mergeCursors(current[key], value) : value
+    }
+    return merged
+  }
+  return result === undefined ? current : result
 }

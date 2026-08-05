@@ -107,8 +107,7 @@ export class WebhookMonitor<TSource extends MonitorSource = MonitorSource> {
       await this.addPending(context, fresh, deliveryId, event)
       if (this.updateCursor) {
         const sourceCursorKey = source.key(freshSource)
-        const cursor = this.updateCursor(event, fresh.cursors[sourceCursorKey])
-        await context.service.updateCursor(fresh, sourceCursorKey, cursor)
+        await context.service.updateCursorValue(fresh, sourceCursorKey, (cursor) => this.updateCursor!(event, cursor))
       }
       const result = await context.sink.deliver({ monitor: fresh, event })
       if (!result.ok) {

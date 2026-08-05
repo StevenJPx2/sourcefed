@@ -2,7 +2,15 @@
 
 sourcefed is a monitor service. It lets you create **monitors** that watch a Jira issue, GitHub
 PR, or Slack thread and route NEW events into the host session where the monitor was created.
-The OpenCode and Pi adapters use the Sourcefed MCP server for monitor tools and event delivery.
+The OpenCode and Pi adapters drive the Sourcefed daemon client (`@sourcefed/daemon`) for
+monitor tools and event delivery; the same daemon can be served through MCP (`@sourcefed/mcp`)
+or driven directly by the CLI.
+
+All transports speak the same daemon JSON protocol over HTTP (`POST /rpc` +
+`GET /events` SSE). The MCP adapter adds the 2026 resource-subscription flow
+(`subscriptions/listen`, `notifications/resources/updated`, `monitor_events_ack`)
+on top. When `SOURCEFED_DAEMON_URL` is unset, the OpenCode and Pi adapters
+spawn one local HTTP daemon automatically (if none is running) and connect to it.
 
 ## When to create a monitor
 
@@ -30,9 +38,21 @@ Actionable events trigger an agent turn. Stable all-passing CI is suppressed to 
 
 The abstract `Monitor` consolidates transport fallback and recovery and composes whichever
 generic `PollMonitor` and `WebhookMonitor` transports a source exposes as class attributes.
-Each source is isolated in its own directory: `jira/`, `github/`, and `slack/`, with monitor and
-event modules. Jira exposes only polling; GitHub and Slack expose both. Do not add source-specific
-transport branches to tools or scheduling.
+Each provider is its own package (`@sourcefed/provider-{jira,github,slack}`) with monitor and
+event modules; the built-in registry (`SOURCE_MAP`) is composed by the daemon, which imports
+the provider packages directly. Jira exposes only polling;
+GitHub and Slack expose both. Do not add source-specific transport branches to tools,
+scheduling, or the daemon.
+
+## Skills
+
+The CLI bundles skills that teach agents how to use sourcefed, in the agent-browser style: a
+thin discovery stub points at CLI-served content that always matches the installed version.
+
+```bash
+sourcefed skills           # list available skills
+sourcefed skills get core  # load the core usage guide (--full adds references)
+```
 
 ## Lifecycle
 

@@ -1,18 +1,28 @@
 {
   "name": "@sourcefed/core",
   "version": "0.2.0",
-  "description": "Host-independent monitor engine and built-in source adapters.",
+  "description": "Host-independent monitor engine: domain model, transports, persistence, and SDK surface.",
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./storage": {
+      "types": "./src/storage/index.ts",
+      "default": "./dist/storage/index.js"
+    }
   },
   "imports": {
     "#sourcefed/monitors": "./src/monitors/index.ts",
     "#sourcefed/sources": "./src/sources/index.ts",
-    "#sourcefed/types": "./src/types/index.ts",
-    "#sourcefed/utils": "./src/utils/index.ts"
+    "#sourcefed/types": "./src/types/index.ts"
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "dependencies": {
     "valibot": "1.4.2"
   }

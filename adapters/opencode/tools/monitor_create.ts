@@ -1,5 +1,5 @@
 import { tool } from "@opencode-ai/plugin"
-import { SOURCE_TYPES } from "@sourcefed/mcp"
+import { SOURCE_TYPES } from "@sourcefed/daemon"
 import { callMonitorTool } from "../tool-result.ts"
 
 export default tool({

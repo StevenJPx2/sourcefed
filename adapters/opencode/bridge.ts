@@ -1,7 +1,5 @@
-import type { Client } from "@modelcontextprotocol/client"
-import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { connectSourcefedClient, listenForTarget, localDaemonEnvironment, localMcpCommand, parseToolResult } from "@sourcefed/mcp"
+import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
 import type { createOpencodeClient } from "@opencode-ai/sdk"
 
@@ -11,59 +9,91 @@ type Target = { kind: "opencode-session"; id: string }
 let activeBridge: OpenCodeBridge | undefined
 
 export class OpenCodeBridge {
-  private mcp?: Client
+  private daemon?: DaemonClient
   private readonly listeners = new Map<string, { close(): Promise<void> }>()
+  private lastAttemptAt = 0
+  private lastError: string | undefined
 
   constructor(private readonly opencode: OpenCodeClient) {}
 
   async start(): Promise<void> {
-    if (this.mcp) return
-    const local = localMcpCommand(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..", "apps/cli/src/index.ts"))
-    this.mcp = await connectSourcefedClient({
-      name: "sourcefed-opencode",
-      url: process.env.SOURCEFED_MCP_URL,
-      command: local.command,
-      args: local.args,
-      env: localDaemonEnvironment("opencode", path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..", ".state", "monitors.json")),
-    })
+    await this.ensureDaemon()
   }
 
   async ensureTarget(sessionID: string): Promise<void> {
-    await this.start()
+    await this.ensureDaemon()
     if (this.listeners.has(sessionID)) return
     const target = this.target(sessionID)
-    const listener = await listenForTarget(this.mcp!, target, async (events) => {
+    const listener = await this.daemon!.subscribe(target, async (events) => {
       await this.routeEvents(events)
     })
     this.listeners.set(sessionID, listener)
   }
 
   async callTool(name: string, arguments_: Record<string, unknown>, sessionID: string): Promise<unknown> {
+    await this.ensureDaemon()
+    if (!this.daemon) {
+      return { ok: false, error: `sourcefed daemon unavailable: ${this.lastError ?? "not started"}` }
+    }
     await this.ensureTarget(sessionID)
-    const result = await this.mcp!.callTool({ name, arguments: { ...arguments_, target: this.target(sessionID) } })
-    return parseToolResult(result)
+    return this.daemon.request(name.replace(/_/g, "."), { ...arguments_, target: this.target(sessionID) })
   }
 
   async close(): Promise<void> {
     for (const listener of this.listeners.values()) await listener.close()
     this.listeners.clear()
-    await this.mcp?.close()
-    this.mcp = undefined
+    await this.daemon?.close()
+    this.daemon = undefined
+  }
+
+  private async ensureDaemon(): Promise<void> {
+    if (this.daemon) return
+    if (Date.now() - this.lastAttemptAt < 15_000) return
+    this.lastAttemptAt = Date.now()
+    try {
+      const url = process.env.SOURCEFED_DAEMON_URL
+      if (url) {
+        this.daemon = await connectDaemonClient({ name: "sourcefed-opencode", url })
+        return
+      }
+      const local = daemonCommand(cliEntry())
+      const spawned = await spawnLocalDaemon({
+        command: local.command,
+        args: local.args,
+        env: daemonEnvironment(),
+      })
+      this.daemon = await connectDaemonClient({ name: "sourcefed-opencode", url: spawned.url })
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error)
+      console.error(`[sourcefed] daemon unavailable: ${this.lastError}`)
+    }
   }
 
   private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
+    const delivered: QueuedMonitorEvent[] = []
     for (const queued of events) {
       const body = {
         ...(queued.event.actionable ? {} : { noReply: true }),
         parts: [{ type: "text" as const, text: eventText(queued.event) }],
       }
       await this.opencode.session.prompt({ path: { id: queued.target.id }, body })
+      delivered.push(queued)
+    }
+    if (delivered.length > 0 && this.daemon) {
+      await this.daemon.request("monitor.ack", {
+        target: { kind: "opencode-session", id: delivered[0].target.id },
+        eventIDs: delivered.map((queued) => queued.id),
+      })
     }
   }
 
   private target(sessionID: string): Target {
     return { kind: "opencode-session", id: sessionID }
   }
+}
+
+function cliEntry(): string {
+  return fileURLToPath(import.meta.resolve("@sourcefed/cli"))
 }
 
 export function setOpenCodeBridge(bridge: OpenCodeBridge): void {

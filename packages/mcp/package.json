@@ -1,18 +1,26 @@
 {
   "name": "@sourcefed/mcp",
   "version": "0.2.0",
-  "description": "Sourcefed MCP server and client helpers.",
+  "description": "Model Context Protocol adapter for the Sourcefed daemon.",
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "dependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
     "@modelcontextprotocol/server": "2.0.0",
-    "@sourcefed/core": "workspace:*",
-    "@sourcefed/providers": "workspace:*",
-    "@sourcefed/store": "workspace:*",
+    "@sourcefed/core": "*",
+    "@sourcefed/daemon": "*",
     "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0"
   }
 }

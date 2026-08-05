@@ -1,1 +1,1 @@
-export { PollMonitor } from "./monitor.ts"
+export { PollMonitor, mergeCursors } from "./monitor.ts"

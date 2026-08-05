@@ -9,10 +9,10 @@
     "./tui": "./tui.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
-    "@opencode-ai/plugin": "*",
-    "@opencode-ai/sdk": "*",
-    "@sourcefed/core": "workspace:*",
-    "@sourcefed/mcp": "workspace:*"
+    "@opencode-ai/plugin": "1.18.13",
+    "@opencode-ai/sdk": "1.18.13",
+    "@sourcefed/cli": "*",
+    "@sourcefed/core": "*",
+    "@sourcefed/daemon": "*"
   }
 }

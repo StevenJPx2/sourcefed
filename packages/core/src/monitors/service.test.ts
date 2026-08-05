@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test"
+import assert from "node:assert/strict"
+import { describe, test } from "node:test"
 import { MonitorService } from "./service.ts"
 import { InMemoryMonitorStore } from "../storage/in-memory-monitor-store.ts"
 
@@ -16,24 +17,24 @@ describe("MonitorService", () => {
     const created = await service.create(input)
     const reused = await service.create({ ...input, name: "renamed" })
 
-    expect(created.created).toBe(true)
-    expect(reused.created).toBe(false)
-    expect(reused.monitor.id).toBe(created.monitor.id)
-    expect(created.monitor.pollIntervalSec).toBe(15)
+    assert.equal(created.created, true)
+    assert.equal(reused.created, false)
+    assert.equal(reused.monitor.id, created.monitor.id)
+    assert.equal(created.monitor.pollIntervalSec, 15)
 
     const reordered = await service.create({
       ...input,
       source: { key: "issue-1", type: "test" },
     })
-    expect(reordered.created).toBe(false)
+    assert.equal(reordered.created, false)
 
-    expect(await service.list()).toHaveLength(1)
+    assert.equal((await service.list()).length, 1)
 
     const stopped = await service.stop(created.monitor.id)
-    expect("error" in stopped ? stopped : stopped.enabled).toBe(false)
-    expect(await service.get(created.monitor.id)).toMatchObject({ enabled: false })
+    assert.equal("error" in stopped ? stopped : stopped.enabled, false)
+    assert.partialDeepStrictEqual(await service.get(created.monitor.id), { enabled: false })
 
     await service.remove(created.monitor.id)
-    expect(await service.get(created.monitor.id)).toBeUndefined()
+    assert.equal(await service.get(created.monitor.id), undefined)
   })
 })
