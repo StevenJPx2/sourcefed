@@ -11,3 +11,4 @@ dist-tests/
 /.harper-dictionary.txt
 .tui-build/
 dist.dts/
+.cortexkit
