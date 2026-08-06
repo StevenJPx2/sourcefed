@@ -87,6 +87,34 @@ New events use the current MCP 2026 resource-subscription flow:
 2. The daemon publishes `notifications/resources/updated`.
 3. The host reads the resource, presents the events, and calls `monitor_events_ack`.
 
+### Adding it to an agent
+
+Point your agent's MCP client at the server with stdio or HTTP. The server owns an
+in-process daemon, so `monitor create` through MCP behaves exactly like the CLI.
+
+Claude Code (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "sourcefed": { "command": "sourcefed", "args": ["mcp", "--stdio"] }
+  }
+}
+```
+
+opencode (`opencode.json`):
+
+```json
+{
+  "mcp": {
+    "sourcefed": { "type": "local", "command": ["sourcefed", "mcp", "--stdio"], "enabled": true }
+  }
+}
+```
+
+A shared HTTP server works for any client that supports remote MCP: start
+`sourcefed mcp --http` once, then point clients at `http://127.0.0.1:18788/mcp`.
+
 ## CLI
 
 ```sh
