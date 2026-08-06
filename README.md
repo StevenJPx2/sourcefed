@@ -1,61 +1,60 @@
 # SourceFed
 
-SourceFed, is a tool that solves one problem: how does your agent get notified of changes from different sources like Slack, Jira, or GitHub? This solves it. Your agent can independently create monitors that keep up with updates from these sources.
+SourceFed lets agents watch Jira issues, GitHub PRs, and Slack threads: an agent creates a
+monitor, and new activity on that source is delivered into its session. After an agent
+opens a PR, it can create a monitor that reports CI, reviews, comments, and merge
+conflicts — no polling prompts, no copy-pasting status.
 
-For example, after the agent creates a PR, it can create a monitor that will be notified of CI, reviews, comments, merge conflicts, and more. No more copy pasting or reminding the agent to check the PR status.
-
-It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel (I used watch them all the time as a kid [RIP]),
-
-## Architecture
-
-```text
-Pi / OpenCode / CLI
-        | daemon client (stdio or HTTP JSON protocol)
-        v
-Sourcefed daemon (@sourcefed/daemon)
-        |          ^
-        |          +-- @sourcefed/mcp (one presentation of the daemon)
-        | @sourcefed/core (monitor engine, transports, JSON storage, SDK)
-        v
-Jira / GitHub / Slack providers (@sourcefed/provider-*)
-```
-
-Each package stands on its own:
-
-- **`@sourcefed/core`**: the monitor engine: domain model, poll/webhook transports,
-  cursors, event queues, and the JSON store. Use it as an SDK in any runtime.
-- **`@sourcefed/provider-{jira,github,slack}`**: independent provider packages under
-  `providers/`. A provider can live in its own repository; anything implementing the same
-  monitor contract plugs in. The daemon composes the built-in registry (`SOURCE_MAP`) by
-  importing the three provider packages directly.
-- **`@sourcefed/daemon`**: a transport-neutral application service over core + providers:
-  monitor commands, event reads/acknowledgement, subscriptions, and a small JSON protocol
-  over stdio or HTTP. The MCP server, CLI, and host adapters are all daemon consumers.
-- **`@sourcefed/mcp`**: exposes the daemon through MCP tools and modern 2026 resource
-  subscriptions for event push.
-- **`@sourcefed/cli`**: the `sourcefed` binary: runs the daemon (`daemon`),
-  serves MCP (`mcp --stdio|--http`), manages monitors from the shell, and bundles skills
-  served via `sourcefed skills get` (agent-browser style).
-- **`@sourcefed/opencode`**, **`@sourcefed/pi`**: host adapters that drive the daemon client
-  directly and route events into their sessions.
-
-The daemon owns polling, webhook handling, cursors, monitor identity, retries, and the shared
-state store. Hosts only provide a target identity and an event presentation bridge.
+Named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel.
 
 ## Install
 
 ```sh
-git clone https://github.com/StevenJPx2/sourcefed.git ~/.config/opencode/plugins/sourcefed
-cd ~/.config/opencode/plugins/sourcefed
-npm install
+npm install --global @fdcn/sourcefed
+# or
+brew install stevenjpx2/tap/sourcefed
 ```
 
-The CLI builds to a single Node bundle (`packages/cli/dist/index.js`) with esbuild. The daemon,
-CLI, adapters, and tests all run on Node natively.
+The package ships one artifact with everything:
+
+```text
+sourcefed                 CLI (daemon, MCP, monitor management, skills)
+@fdcn/sourcefed/core      monitor engine: domain model, poll/webhook transports,
+                          cursors, event queues, JSON store
+@fdcn/sourcefed/daemon    transport-neutral application service: monitor commands,
+                          event reads/acknowledgement, subscriptions, JSON protocol
+@fdcn/sourcefed/mcp       the daemon through MCP tools and resource subscriptions
+@fdcn/sourcefed/server    OpenCode server plugin (tool registration, guidance)
+@fdcn/sourcefed/tui       OpenCode TUI plugin (sidebar, /sourcefed dialogs)
+@fdcn/sourcefed/pi        Pi extension
+```
+
+Jira, GitHub, and Slack providers are built in; the daemon composes the provider registry
+directly. The daemon owns polling, webhook handling, cursors, monitor identity, retries,
+and the shared state store. Hosts provide a target identity and an event bridge.
+
+## OpenCode And Pi
+
+```json
+// opencode.json
+{ "plugin": ["@fdcn/sourcefed@0.2.2"] }
+```
+
+```json
+// tui.json
+{ "plugin": ["@fdcn/sourcefed@0.2.2"] }
+```
+
+OpenCode resolves the server entrypoint from `exports["./server"]` and the TUI plugin from
+`exports["./tui"]`; Pi loads the extension from the package's `pi` metadata. Both register
+`monitor_create`/`monitor_list`/`monitor_status`/`monitor_start`/`monitor_stop` tools, and
+`/sourcefed` plus `/sourcefed-logs` dialogs that show per-monitor detail (delivery, poll
+interval, created/updated timestamps, last poll, webhook heartbeat).
+
+Without `SOURCEFED_DAEMON_URL`, a host spawns one local HTTP daemon when none is running
+and connects to it, so monitors persist across sessions and share one registry.
 
 ## Daemon
-
-Start a shared local HTTP daemon:
 
 ```sh
 sourcefed daemon
@@ -64,21 +63,17 @@ sourcefed daemon
 The HTTP daemon serves `POST /rpc`, `GET /events?target=...` (SSE push), and provider
 webhooks at `/webhooks/github` and `/webhooks/slack`. It defaults to
 `http://127.0.0.1:18787` (`SOURCEFED_DAEMON_HOST`/`SOURCEFED_DAEMON_PORT`, or `--host`/
-`--port`); configure clients with `SOURCEFED_DAEMON_URL` or `SOURCEFED_DAEMON_PORT`. When
-neither is set, the OpenCode and Pi adapters spawn one local HTTP daemon automatically (if
-none is running) and connect to it, so monitors persist across sessions and share a single
-registry. Binding to a non-loopback address requires `SOURCEFED_DAEMON_TOKEN`, which
-clients then send as a bearer token on `/rpc` and `/events`.
+`--port`); clients use `SOURCEFED_DAEMON_URL` or `SOURCEFED_DAEMON_PORT`. Binding to a
+non-loopback address requires `SOURCEFED_DAEMON_TOKEN`, which clients send as a bearer
+token on `/rpc` and `/events`.
 
 When any webhook secret is configured (or `SOURCEFED_ENABLE_WEBHOOKS=1`), the daemon also
-starts a separate webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PORT`
+starts a webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PORT`
 (default `127.0.0.1:8788`). Point a tunnel or reverse proxy at it (e.g. bind `0.0.0.0`) to
-receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; requests are
-authenticated by webhook signature (HMAC / Slack signing), not the daemon token.
+receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; webhook
+signature (HMAC / Slack signing) authenticates requests, not the daemon token.
 
 ## MCP
-
-Serve the daemon through MCP:
 
 ```sh
 sourcefed mcp --http      # MCP at http://127.0.0.1:18788/mcp (SOURCEFED_MCP_PORT)
@@ -92,8 +87,6 @@ New events use the current MCP 2026 resource-subscription flow:
 3. The host reads the resource, presents the events, and calls `monitor_events_ack`.
 
 ## CLI
-
-Manage monitors against a running daemon:
 
 ```sh
 sourcefed monitor create --source-type jira --issue-key ADEPT-43742 --name ADEPT-43742
@@ -129,16 +122,6 @@ sourcefed skills path core
 
 Set `SOURCEFED_SKILLS_DIR` to override the bundled skills directory.
 
-## OpenCode And Pi
-
-The OpenCode plugin drives the daemon client for every monitor tool. Without
-`SOURCEFED_DAEMON_URL`, it spawns one local HTTP daemon (if none is running) and
-connects to it, sharing a single monitor registry with other hosts. Set the
-variable to point at a specific daemon.
-
-The Pi extension follows the same rule and registers `sourcefed_monitor_*` tools plus a
-`/sourcefed` command.
-
 ## Configuration
 
 Copy `.env.example` to a secure environment configuration and set only the integrations you
@@ -169,26 +152,27 @@ npm install
 npm run check
 ```
 
-`npm run check` builds the workspace bundles, builds the test bundles, runs the suite under
-`node --test`, and typechecks. The bundled CLI is at `packages/cli/dist/index.js`.
+`npm run check` builds the workspace bundles and the public package, builds the test
+bundles, runs the suite under `node --test`, and typechecks.
 
 ### Integration Tests
 
 `npm run integration` packs every workspace package, installs the tarballs into an isolated
 consumer project, and runs real-life scenarios against the installed artifacts:
 
-- **core** — store/queue/lock behavior
-- **daemon** — lifecycle with event delivery
-- **cli** — the installed binary driving a live daemon
-- **mcp** — the 2026 resource-subscription flow against a real MCP HTTP server
+- **core / daemon / cli / mcp** — store/queue/lock behavior, daemon lifecycle with event
+  delivery, the installed binary driving a live daemon, and the 2026 resource-subscription
+  flow against a real MCP HTTP server
 - **provider-\*** — each provider polling against mocked upstreams through a live daemon tick
+- **public-package** — the aggregate tarball alone: subpath imports, the npm-created bin,
+  daemon + RPC, no TypeScript in `dist`
 - **opencode / pi adapters** — run in their real hosts when available: headless `opencode
   run` with the plugin installed and a temp state dir, and Pi RPC mode loading the
   extension directly (each skips when its host is unavailable)
 
-The repository includes an optional OpenCode pull-request review workflow at
-`.github/workflows/opencode-review.yml`. Add an `OPENCODE_API_KEY` Actions secret before
-enabling it.
+Releases follow [docs/e2e-release-plan.md](./docs/e2e-release-plan.md): the exact tarball
+that publishes is tested with no private workspace packages installed, every scenario must
+pass with zero skips, and registry canaries gate config and tap updates.
 
 Monitor state is intentionally ignored by Git. Never commit Jira keys, repository names,
 Slack URLs, session IDs, webhook payloads, or credentials in tests and examples.
