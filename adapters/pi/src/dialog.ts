@@ -38,8 +38,9 @@ export function showSourcefedDialog(
 }
 
 export function monitorLines(monitors: MonitorView[], theme: Theme): Line[] {
-  if (monitors.length === 0) return [{ text: theme.fg("dim", "No active monitors") }]
-  return monitors.map((monitor) => {
+  const active = monitors.filter((monitor) => monitor.enabled)
+  if (active.length === 0) return [{ text: theme.fg("dim", "No active monitors") }]
+  return active.map((monitor) => {
     const status = monitor.unresponsive ? theme.fg("error", "●") : theme.fg("success", "●")
     const describe = theme.fg("text", monitor.describe)
     const detail = monitor.detail ? theme.fg("muted", monitor.detail) : ""
