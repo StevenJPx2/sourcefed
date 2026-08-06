@@ -7,21 +7,20 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
-const VERSION = process.argv[2]
 const otpIndex = process.argv.indexOf("--otp")
 const OTP = otpIndex >= 0 ? process.argv[otpIndex + 1] : undefined
 
-if (!/^\d+\.\d+\.\d+$/.test(VERSION ?? "")) {
-  console.error("usage: npm run release -- <version> [--otp CODE]")
+// The version comes from the root package.json, bumped by `npm run release` (changelogen).
+const VERSION = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version
+if (!/^\d+\.\d+\.\d+$/.test(VERSION)) {
+  console.error("no valid version in root package.json — run `npm run release` first")
   process.exit(1)
 }
 
-const PKG_PATH = path.join(ROOT, "packages/sourcefed/package.json")
+const AGG_PKG = path.join(ROOT, "packages/sourcefed/package.json")
 const READMES = [path.join(ROOT, "README.md"), path.join(ROOT, "packages/sourcefed/README.md")]
 const REL = path.join(ROOT, ".release")
 const TARBALL = path.join(REL, `fdcn-sourcefed-${VERSION}.tgz`)
-const DOTFILES = process.env.DOTFILES_DIR ?? path.join(os.homedir(), "Documents/Projects/dotfiles")
-const TAP = process.env.TAP_DIR ?? path.join(os.homedir(), "Documents/Projects/homebrew-sourcefed")
 
 // 1. working tree and branch
 const status = execFileSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8" }).trim()
@@ -29,10 +28,10 @@ if (status) fail(`working tree is not clean:\n${status}`)
 const branch = execFileSync("git", ["branch", "--show-current"], { cwd: ROOT, encoding: "utf8" }).trim()
 if (branch !== "main") fail(`release from main, not ${branch}`)
 
-// 2. version bump
-const manifest = JSON.parse(readFileSync(PKG_PATH, "utf8"))
-if (manifest.version === VERSION) fail(`version ${VERSION} is already set — pick a new version`)
-writeFileSync(PKG_PATH, JSON.stringify({ ...manifest, version: VERSION }, null, 2) + "\n")
+// 2. sync the aggregate manifest and README pins to the released version
+const manifest = JSON.parse(readFileSync(AGG_PKG, "utf8"))
+if (manifest.version === VERSION) fail(`@fdcn/sourcefed ${VERSION} is already published — bump with \`npm run release\` first`)
+writeFileSync(AGG_PKG, JSON.stringify({ ...manifest, version: VERSION }, null, 2) + "\n")
 for (const readme of READMES) {
   writeFileSync(readme, readFileSync(readme, "utf8").replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${VERSION}`))
 }
@@ -56,13 +55,13 @@ if (!skills.includes("core:")) fail("canary: skills list failed")
 if (existsSync(path.join(consumer, "node_modules/@sourcefed"))) fail("canary: private @sourcefed packages leaked into the consumer")
 rmSync(consumer, { recursive: true, force: true })
 
-// 6. commit + push the bump
+// 6. commit + push the sync
 run("git", ["add", "packages/sourcefed/package.json", ...READMES], ROOT)
-run("git", ["commit", "-m", `chore: bump @fdcn/sourcefed to ${VERSION}`], ROOT)
+run("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${VERSION}`], ROOT)
 run("git", ["push", "origin", "main"], ROOT)
 
 // 7. publish the exact tarball (OTP prompts on the terminal unless --otp is given)
-run("npm", ["publish", TARBALL, "--access", "public", ...(OTP ? ["--otp", OTP] : [])], ROOT, { interactive: true })
+run("npm", ["publish", TARBALL, "--access", "public", ...(OTP ? ["--otp", OTP] : [])], ROOT)
 
 // 8. registry canary
 waitForRegistry(VERSION)
@@ -72,20 +71,12 @@ run("npm", ["install", "--no-audit", "--no-fund", `@fdcn/sourcefed@${VERSION}`],
 execFileSync("./node_modules/.bin/sourcefed", ["skills", "list"], { cwd: canary, encoding: "utf8" })
 rmSync(canary, { recursive: true, force: true })
 
-// 9. pins: dotfiles, pi, homebrew tap
-updateDotfiles(VERSION)
-run("pi", ["install", `npm:@fdcn/sourcefed@${VERSION}`], ROOT, { optional: true })
-updateTap(VERSION, sha)
-
-// 10. tag — the Release workflow creates the GitHub release from this tag
-run("git", ["tag", `v${VERSION}`], ROOT)
-run("git", ["push", "origin", `v${VERSION}`], ROOT)
-
-console.log(`\nreleased @fdcn/sourcefed@${VERSION} (${sha.slice(0, 12)})\n  tarball: ${TARBALL}\n  pins: dotfiles, pi, homebrew tap updated\n  GitHub release: created by the v${VERSION} tag workflow`)
-console.log(`  record: ${writeManifest(VERSION, sha)}`)
+writeManifest(VERSION, sha)
+console.log(`\nreleased @fdcn/sourcefed@${VERSION} (${sha.slice(0, 12)})\n  tarball: ${TARBALL}\n  GitHub release: created from the v${VERSION} tag by the Release workflow`)
+console.log("  deployment pins: `npm run release:pins`")
 
 function writeManifest(version, sha256) {
-  const manifest = {
+  const record = {
     version,
     tarball: TARBALL,
     sha256,
@@ -93,8 +84,7 @@ function writeManifest(version, sha256) {
     node: process.version,
     at: new Date().toISOString(),
   }
-  writeFileSync(path.join(REL, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n")
-  return path.join(REL, "manifest.json")
+  writeFileSync(path.join(REL, "manifest.json"), JSON.stringify(record, null, 2) + "\n")
 }
 
 function waitForRegistry(version) {
@@ -102,50 +92,15 @@ function waitForRegistry(version) {
   while (Date.now() < deadline) {
     const latest = execFileSync("npm", ["view", "@fdcn/sourcefed", "dist-tags.latest"], { encoding: "utf8" }).trim()
     if (latest === version) return
-    console.log(`[release] waiting for registry to serve ${version} (currently ${latest})...`)
+    console.log(`[release] waiting for the registry to serve ${version} (currently ${latest})...`)
     execFileSync("sleep", ["15"])
   }
   fail(`registry never served ${version}`)
 }
 
-function updateDotfiles(version) {
-  if (!existsSync(path.join(DOTFILES, "configs/opencode/opencode.jsonc"))) {
-    console.warn(`[release] dotfiles repo not found at ${DOTFILES}; skip pin update`)
-    return
-  }
-  for (const file of ["configs/opencode/opencode.jsonc", "configs/opencode/tui.json"]) {
-    const full = path.join(DOTFILES, file)
-    writeFileSync(full, readFileSync(full, "utf8").replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${version}`))
-  }
-  run("git", ["add", "configs/opencode"], DOTFILES)
-  run("git", ["commit", "-m", `chore(opencode): bump sourcefed plugin to ${version}`], DOTFILES)
-  run("git", ["push", "origin", "HEAD"], DOTFILES)
-}
-
-function updateTap(version, sha256) {
-  const formula = path.join(TAP, "Formula/sourcefed.rb")
-  if (!existsSync(TAP)) {
-    console.warn(`[release] tap repo not found at ${TAP}; skip formula update`)
-    return
-  }
-  run("git", ["pull", "--rebase", "-q", "origin", "HEAD"], TAP)
-  let source = readFileSync(formula, "utf8")
-    .replace(/sourcefed-[\d.]+\.tgz/g, `sourcefed-${version}.tgz`)
-    .replace(/sha256 "[a-f0-9]{64}"/, `sha256 "${sha256}"`)
-  writeFileSync(formula, source)
-  run("git", ["add", "Formula"], TAP)
-  run("git", ["commit", "-m", `sourcefed: update to ${version}`], TAP)
-  run("git", ["push", "origin", "HEAD"], TAP)
-}
-
-function run(command, args, cwd, options = {}) {
+function run(command, args, cwd) {
   console.log(`$ ${command} ${args.join(" ")}`)
-  try {
-    execFileSync(command, args, { cwd, stdio: options.interactive ? "inherit" : "inherit" })
-  } catch (error) {
-    if (options.optional) return
-    throw error
-  }
+  execFileSync(command, args, { cwd, stdio: "inherit" })
 }
 
 function fail(message) {

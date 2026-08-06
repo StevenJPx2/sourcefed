@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
+    "changelogen": "^0.6.2",
     "esbuild": "^0.25.0",
     "typescript": "^5.9.2"
   },
@@ -44,6 +45,8 @@
     "sourcefed": "node packages/cli/dist/index.js",
     "integration": "node scripts/integration.mjs",
     "build:tui": "node scripts/build-tui.mjs",
-    "release": "node scripts/release/publish.mjs"
+    "release": "changelogen --release --push",
+    "release:publish": "node scripts/release/publish.mjs",
+    "release:pins": "node scripts/release/pins.mjs"
   }
 }
