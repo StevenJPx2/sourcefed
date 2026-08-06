@@ -49,6 +49,16 @@ describe("GitHub poll event helpers", () => {
     assert.equal(events.at(-1)?.terminal, true)
   })
 
+  test("closed PRs are terminal and emit a close event", () => {
+    const cursor = emptyGithubCursor()
+    const events: GithubEvent[] = []
+    appendGithubStateEvent("org/repo", 12, cursor, events, "OPEN")
+    const terminal = appendGithubStateEvent("org/repo", 12, cursor, events, "CLOSED")
+    assert.equal(terminal, true)
+    assert.equal(events.at(-1)?.summary, "PR #12 was CLOSED without merging")
+    assert.equal(events.at(-1)?.terminal, true)
+  })
+
   test("reconciles webhook review and comment IDs into the poll cursor", () => {
     const cursor = updateGithubCursor({
       source: { type: "github", repo: "org/repo", prNumber: 12 },
