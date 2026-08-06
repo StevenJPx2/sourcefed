@@ -1,0 +1,68 @@
+{
+  "name": "@fdcn/sourcefed",
+  "version": "0.2.0",
+  "description": "Live Jira, GitHub, and Slack monitoring for agent hosts: CLI, daemon, MCP server, and host plugins.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "sourcefed": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "dist.dts",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist.dts/packages/cli/src/index.d.ts",
+      "default": "./dist/cli.js"
+    },
+    "./core": {
+      "types": "./dist.dts/packages/core/src/index.d.ts",
+      "default": "./dist/core.js"
+    },
+    "./core/storage": {
+      "types": "./dist.dts/packages/core/src/storage/index.d.ts",
+      "default": "./dist/core-storage.js"
+    },
+    "./daemon": {
+      "types": "./dist.dts/packages/daemon/src/index.d.ts",
+      "default": "./dist/daemon.js"
+    },
+    "./mcp": {
+      "types": "./dist.dts/packages/mcp/src/index.d.ts",
+      "default": "./dist/mcp.js"
+    },
+    "./server": {
+      "types": "./dist.dts/packages/sourcefed/src/server.d.ts",
+      "default": "./dist/opencode.js"
+    },
+    "./opencode": {
+      "types": "./dist.dts/adapters/opencode/index.d.ts",
+      "default": "./dist/opencode.js"
+    },
+    "./opencode/tui": "./dist/tui-compiled.mjs",
+    "./tui": "./dist/tui-compiled.mjs",
+    "./pi": "./dist/pi.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "@opencode-ai/plugin": "1.18.13",
+    "typebox": "1.3.10"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/pi.js"
+    ]
+  }
+}

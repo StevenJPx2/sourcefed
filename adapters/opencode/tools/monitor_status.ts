@@ -1,7 +1,7 @@
-import { tool } from "@opencode-ai/plugin"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import { callMonitorTool } from "../tool-result.ts"
 
-export default tool({
+const definition: ToolDefinition = tool({
   description: "Get the status of a monitor created by the current session.",
   args: {
     id: tool.schema.string().describe("Monitor id (from monitor_list or monitor_create)"),
@@ -10,3 +10,5 @@ export default tool({
     return callMonitorTool("monitor_status", { id: args.id }, context.sessionID)
   },
 })
+
+export default definition

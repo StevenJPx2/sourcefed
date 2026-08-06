@@ -19,5 +19,6 @@
     "@sourcefed/provider-github": "*",
     "@sourcefed/provider-jira": "*",
     "@sourcefed/provider-slack": "*"
-  }
+  },
+  "private": true
 }

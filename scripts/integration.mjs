@@ -13,6 +13,7 @@ const PACKAGES = [
   "packages/daemon",
   "packages/mcp",
   "packages/cli",
+  "packages/sourcefed",
   "providers/jira",
   "providers/github",
   "providers/slack",

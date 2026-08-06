@@ -59,7 +59,7 @@ await build({
   bundle: true,
   format: "esm",
   platform: "browser",
-  external: ["node:*", "@opencode-ai/plugin/tui", "@sourcefed/daemon", "opentui:runtime-module:*"],
+  external: ["node:*", "@opencode-ai/plugin/tui", "@fdcn/sourcefed/daemon", "opentui:runtime-module:*"],
   logLevel: "info",
 })
 

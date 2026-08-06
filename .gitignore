@@ -10,3 +10,4 @@ dist-tests/
 .integration/
 /.harper-dictionary.txt
 .tui-build/
+dist.dts/

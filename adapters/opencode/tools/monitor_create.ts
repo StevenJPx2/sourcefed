@@ -1,8 +1,8 @@
-import { tool } from "@opencode-ai/plugin"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
 import { SOURCE_TYPES } from "@sourcefed/daemon"
 import { callMonitorTool } from "../tool-result.ts"
 
-export default tool({
+const definition: ToolDefinition = tool({
   description:
     "Create a detect-only monitor that watches a Jira issue, GitHub PR, or Slack thread and routes NEW events into the current session. Slack monitors only read and notify; they never reply. GitHub and Slack use webhooks when configured and polling otherwise; Jira uses polling.",
   args: {
@@ -20,3 +20,5 @@ export default tool({
     return callMonitorTool("monitor_create", args, context.sessionID)
   },
 })
+
+export default definition

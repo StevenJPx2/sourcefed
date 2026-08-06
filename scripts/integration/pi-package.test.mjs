@@ -12,16 +12,15 @@ const piBin = (() => {
 })()
 
 if (!piBin) {
-  console.log("SKIP pi: no pi binary on PATH")
+  console.log("SKIP pi-package: no pi binary on PATH")
   process.exit(0)
 }
 
-const repoRoot = path.resolve("..", "..")
-const dir = await tempDir("sourcefed-it-pi-")
+const dir = await tempDir("sourcefed-it-pi-pkg-")
 const agentDir = path.join(dir, "agent")
 const sessionDir = path.join(dir, "sessions")
 const stateDir = path.join(dir, "state")
-const extensionPath = path.join(repoRoot, "adapters", "pi", "src", "index.ts")
+const extensionPath = path.resolve("node_modules/@fdcn/sourcefed/dist/pi.js")
 
 const env = {
   ...process.env,
@@ -45,7 +44,7 @@ proc.on("exit", (code) => { exited = true })
 try {
   await sleep(3_000)
   if (exited) {
-    console.log(`SKIP pi: rpc exited early (${proc.exitCode}): ${output.slice(-400)}`)
+    console.log(`SKIP pi-package: rpc exited early (${proc.exitCode}): ${output.slice(-400)}`)
     process.exit(0)
   }
 
@@ -66,13 +65,13 @@ try {
   }
 
   if (!matched) {
-    console.log(`SKIP pi: no sourcefed output in RPC stream: ${output.slice(-500)}`)
+    console.log(`SKIP pi-package: no sourcefed output in RPC stream: ${output.slice(-500)}`)
     process.exit(0)
   }
 
   const statusLine = output.split("\n").find((line) => line.includes("extension_ui_request") && line.includes("setStatus") && line.includes("sourcefed"))
-  assert(statusLine, "the extension initialized and reported its status through the RPC stream")
-  console.log("pi: RPC mode, extension init, daemon status polling — ok")
+  assert(statusLine, "the aggregate pi extension initialized and reported its status through the RPC stream")
+  console.log("pi-package: aggregate dist extension, RPC mode, status polling — ok")
 } finally {
   proc.kill()
   await removeDir(dir).catch(() => {})

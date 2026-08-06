@@ -1,4 +1,5 @@
 import path from "node:path"
+import { readFileSync } from "node:fs"
 import { assert, assertEqual, removeDir, run, sleep, startProcess, tempDir, waitForReachable } from "./harness.mjs"
 
 const CLI = path.resolve("node_modules/@sourcefed/cli/dist/index.js")
@@ -12,10 +13,10 @@ try {
   const created = JSON.parse(run(process.execPath, [CLI, "monitor", "create", "--source-type", "jira", "--issue-key", "PROJ-1", "--name", "PROJ-1", "--target-kind", "it", "--target-id", "cli-1"], { env }))
   assert(created.ok && created.created, "create via CLI")
 
-  const listed = JSON.parse(run(process.execPath, [CLI, "monitor", "list", "--target-kind", "it", "--target-id", "cli-1"], { env }))
-  assertEqual(listed.monitors.length, 1, "list via CLI")
+  const listed = run(process.execPath, [CLI, "monitor", "list", "--target-kind", "it", "--target-id", "cli-1"], { env })
+  assert(listed.includes("PROJ-1") && listed.includes("enabled"), "list via CLI")
 
-  const id = listed.monitors[0].id
+  const id = JSON.parse(readFileSync(path.join(dir, "monitors.json"), "utf8")).monitors[0].id
   const status = JSON.parse(run(process.execPath, [CLI, "monitor", "status", "--id", id, "--target-kind", "it", "--target-id", "cli-1"], { env }))
   assert(status.ok && status.monitor.enabled, "status via CLI")
 

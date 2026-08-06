@@ -2,6 +2,7 @@
 
 import os from "node:os"
 import path from "node:path"
+import { realpathSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { serveStdio } from "@modelcontextprotocol/server/stdio"
 import { connectDaemonClient, defaultDaemonUrl, handleDaemonHttpRequest, serveHttp, SourcefedDaemon, type DaemonClientOptions, type HttpServer, type LogEntryView, type MonitorView } from "@sourcefed/daemon"
@@ -286,7 +287,7 @@ function printUsage(): void {
   console.error("sourcefed skills [list|get <name>|path [name]]")
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1
