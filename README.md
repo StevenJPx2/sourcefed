@@ -10,10 +10,10 @@ Named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel.
 ## Install
 
 ```sh
-npm install --global @fdcn/sourcefed
-# or
 brew install stevenjpx2/tap/sourcefed
 ```
+
+(`npm install --global @fdcn/sourcefed` installs the same CLI.)
 
 The package ships one artifact with everything:
 
