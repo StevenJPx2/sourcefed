@@ -7,11 +7,17 @@ Every npm release of `@fdcn/sourcefed` is tested as the exact tarball that will 
 The release command is:
 
 ```sh
-npm run release:verify -- 0.2.2
-npm run release:publish -- 0.2.2
+npm run release -- 0.2.4            # prompts for the npm 2FA code on the terminal
+npm run release -- 0.2.4 --otp 123456
 ```
 
-`release:publish` accepts only the tarball produced and recorded by `release:verify`. It performs no rebuild.
+`scripts/release/publish.mjs` runs the whole chain from a clean `main` checkout: bumps the
+version, runs the gates, packs the exact tarball, canaries it in an aggregate-only consumer,
+publishes that tarball, canaries the registry copy, updates the dotfiles/pi/Homebrew pins,
+and tags `v<version>` so the Release workflow creates the GitHub release.
+
+The release command is the only supported publish path. It accepts no rebuild after
+verification and rejects a dirty tree or a non-`main` branch.
 
 ## Artifact Flow
 
