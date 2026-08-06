@@ -1,11 +1,12 @@
 # SourceFed
 
-SourceFed lets agents watch Jira issues, GitHub PRs, and Slack threads: an agent creates a
-monitor, and new activity on that source is delivered into its session. After an agent
-opens a PR, it can create a monitor that reports CI, reviews, comments, and merge
-conflicts — no polling prompts, no copy-pasting status.
+SourceFed is a tool that solves one problem: how does your agent get notified of changes from different sources like Slack, Jira, or GitHub? This solves it. 
+Your agent can independently create monitors that keep up with updates from these sources.
 
-Named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel.
+For example, after the agent creates a PR, it can create a monitor that will be notified of CI, reviews, comments, 
+merge conflicts, and more. No more copy pasting or reminding the agent to check the PR status.
+
+It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel (I used watch them all the time as a kid [RIP])
 
 ## Install
 
