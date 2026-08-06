@@ -1,0 +1,24 @@
+{
+  "name": "@sourcefed/daemon",
+  "version": "0.2.0",
+  "description": "Transport-neutral Sourcefed monitor daemon: core + providers wired into a reusable service with a generic client API.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "dependencies": {
+    "@sourcefed/core": "*",
+    "@sourcefed/provider-github": "*",
+    "@sourcefed/provider-jira": "*",
+    "@sourcefed/provider-slack": "*"
+  },
+  "private": true
+}

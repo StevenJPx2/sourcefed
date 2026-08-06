@@ -1,66 +1,181 @@
-# Sourcefed
+# SourceFed
 
-Sourcefed is an OpenCode plugin that feeds live source activity into the agent session
-where a monitor was created. It watches Jira issues, GitHub pull requests, and Slack
-threads. It is detect-only: Slack and webhook integrations never reply on your behalf.
+SourceFed lets agents watch Jira issues, GitHub PRs, and Slack threads: an agent creates a
+monitor, and new activity on that source is delivered into its session. After an agent
+opens a PR, it can create a monitor that reports CI, reviews, comments, and merge
+conflicts — no polling prompts, no copy-pasting status.
 
-## Features
-
-- Session-scoped `monitor_create`, `monitor_list`, `monitor_status`, and `monitor_stop` tools.
-- GitHub and Slack webhook delivery with automatic polling fallback and recovery.
-- Jira polling with optional configurable terminal-status cleanup.
-- Durable cursors and pending delivery state under the local `.state/` directory.
-- An OpenCode TUI sidebar and monitor details dialog.
+Named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel.
 
 ## Install
 
-Sourcefed is loaded as a local OpenCode plugin. Clone it into the plugin directory used by
-your OpenCode installation, or add it as a submodule in your dotfiles repository:
+```sh
+brew install stevenjpx2/tap/sourcefed
+```
+
+(`npm install --global @fdcn/sourcefed` installs the same CLI.)
+
+The package ships one artifact with everything:
+
+```text
+sourcefed                 CLI (daemon, MCP, monitor management, skills)
+@fdcn/sourcefed/core      monitor engine: domain model, poll/webhook transports,
+                          cursors, event queues, JSON store
+@fdcn/sourcefed/daemon    transport-neutral application service: monitor commands,
+                          event reads/acknowledgement, subscriptions, JSON protocol
+@fdcn/sourcefed/mcp       the daemon through MCP tools and resource subscriptions
+@fdcn/sourcefed/server    OpenCode server plugin (tool registration, guidance)
+@fdcn/sourcefed/tui       OpenCode TUI plugin (sidebar, /sourcefed dialogs)
+@fdcn/sourcefed/pi        Pi extension
+```
+
+Jira, GitHub, and Slack providers are built in; the daemon composes the provider registry
+directly. The daemon owns polling, webhook handling, cursors, monitor identity, retries,
+and the shared state store. Hosts provide a target identity and an event bridge.
+
+## OpenCode And Pi
+
+```json
+// opencode.json
+{ "plugin": ["@fdcn/sourcefed@0.2.2"] }
+```
+
+```json
+// tui.json
+{ "plugin": ["@fdcn/sourcefed@0.2.2"] }
+```
+
+OpenCode resolves the server entrypoint from `exports["./server"]` and the TUI plugin from
+`exports["./tui"]`; Pi loads the extension from the package's `pi` metadata. Both register
+`monitor_create`/`monitor_list`/`monitor_status`/`monitor_start`/`monitor_stop` tools, and
+`/sourcefed` plus `/sourcefed-logs` dialogs that show per-monitor detail (delivery, poll
+interval, created/updated timestamps, last poll, webhook heartbeat).
+
+Without `SOURCEFED_DAEMON_URL`, a host spawns one local HTTP daemon when none is running
+and connects to it, so monitors persist across sessions and share one registry.
+
+## Daemon
 
 ```sh
-git clone https://github.com/StevenJPx2/sourcefed.git ~/.config/opencode/plugins/sourcefed
-cd ~/.config/opencode/plugins/sourcefed
-bun install
+sourcefed daemon
 ```
 
-Register `index.ts` as a server plugin and `tui.ts` as a TUI plugin. Load `GUIDANCE.md`
-through your OpenCode instructions configuration if you want the agent to create monitors
-automatically when it finds a ticket, pull request, or Slack thread. A thin local loader can
-re-export the server entry when your OpenCode installation expects a plugin file:
+The HTTP daemon serves `POST /rpc`, `GET /events?target=...` (SSE push), and provider
+webhooks at `/webhooks/github` and `/webhooks/slack`. It defaults to
+`http://127.0.0.1:18787` (`SOURCEFED_DAEMON_HOST`/`SOURCEFED_DAEMON_PORT`, or `--host`/
+`--port`); clients use `SOURCEFED_DAEMON_URL` or `SOURCEFED_DAEMON_PORT`. Binding to a
+non-loopback address requires `SOURCEFED_DAEMON_TOKEN`, which clients send as a bearer
+token on `/rpc` and `/events`.
 
-```ts
-export { default } from "/path/to/sourcefed/index.ts"
+When any webhook secret is configured (or `SOURCEFED_ENABLE_WEBHOOKS=1`), the daemon also
+starts a webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PORT`
+(default `127.0.0.1:8788`). Point a tunnel or reverse proxy at it (e.g. bind `0.0.0.0`) to
+receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; webhook
+signature (HMAC / Slack signing) authenticates requests, not the daemon token.
+
+## MCP
+
+```sh
+sourcefed mcp --http      # MCP at http://127.0.0.1:18788/mcp (SOURCEFED_MCP_PORT)
+sourcefed mcp --stdio
 ```
+
+New events use the current MCP 2026 resource-subscription flow:
+
+1. A host subscribes with `subscriptions/listen` to its `sourcefed://targets/.../events` resource.
+2. The daemon publishes `notifications/resources/updated`.
+3. The host reads the resource, presents the events, and calls `monitor_events_ack`.
+
+## CLI
+
+```sh
+sourcefed monitor create --source-type jira --issue-key ADEPT-43742 --name ADEPT-43742
+sourcefed monitor create --source-type github --repo owner/name --pr-number 42 --name pr-42
+sourcefed monitor create --source-type slack --thread-url https://myteam.slack.com/archives/C0123/p1700000000000000
+sourcefed monitor list
+sourcefed monitor status --id MONITOR_ID
+sourcefed monitor events
+sourcefed monitor ack --event-id EVENT_ID
+sourcefed monitor stop --id MONITOR_ID
+sourcefed monitor start --id MONITOR_ID
+sourcefed monitor remove --id MONITOR_ID --yes
+sourcefed monitor sources
+```
+
+Monitors belong to a target; the CLI defaults to `--target-kind cli` and `--target-id`
+`$SOURCEFED_TARGET_ID` (falling back to the hostname), so list/status/stop only see
+monitors created for that target. Slack accepts `--thread-url` or `--channel-id` +
+`--thread-ts`; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
+when the daemon is not at the default URL.
+
+### Skills
+
+The CLI bundles skills that teach agents how to use sourcefed, served in the agent-browser
+style: a thin discovery stub plus CLI-served content that always matches the installed version.
+
+```sh
+sourcefed skills            # list available skills
+sourcefed skills get core   # load the core usage guide
+sourcefed skills get core --full
+sourcefed skills path core
+```
+
+Set `SOURCEFED_SKILLS_DIR` to override the bundled skills directory.
 
 ## Configuration
 
 Copy `.env.example` to a secure environment configuration and set only the integrations you
-use. Jira requires `SOURCEFED_JIRA_BASE_URL`, `ATLASSIAN_EMAIL`, and `ATLASSIAN_API_KEY`.
-GitHub and Slack webhook secrets are optional; when absent, those sources use polling.
+use:
 
-The webhook listener exposes `/webhooks/github` and `/webhooks/slack`. Put it behind an
-HTTPS reverse proxy before registering provider webhooks. Set `SOURCEFED_WEBHOOK_HOST` and
-`SOURCEFED_WEBHOOK_PORT` for the local listener.
+- **Jira** — requires `SOURCEFED_JIRA_BASE_URL`, `ATLASSIAN_EMAIL`, `ATLASSIAN_API_KEY`.
+- **GitHub / Slack webhooks** — optional `SOURCEFED_GITHUB_WEBHOOK_SECRET` /
+  `SOURCEFED_SLACK_SIGNING_SECRET`. With them, monitors prefer webhook delivery and fall
+  back to polling when the webhook goes quiet; without them they poll.
+- **GitHub polling** — `GH_TOKEN` or `GITHUB_TOKEN` (without one, GitHub monitors do not
+  poll). Calls the REST and GraphQL APIs directly.
+- **Slack polling** — `SOURCEFED_SLACK_TOKEN` (bot or user token). Reads and notifies only;
+  never sends messages. The bot must be a member of the channel or DM it monitors.
 
-Slack polling uses the local `slackcli` command and its own authenticated account store.
-Slack monitors read and notify only; they do not send messages.
+State:
+
+- The JSON store defaults to `$XDG_STATE_HOME/sourcefed` or `~/.local/state/sourcefed`;
+  override with `SOURCEFED_STATE_DIR`.
+- One daemon owns a state dir at a time (a lock file guards it); adapters reuse an
+  already-running daemon instead of spawning another.
+- A new monitor's first successful poll primes history: existing comments, reviews, and
+  messages are recorded silently; only activity after that point is delivered as events.
 
 ## Development
 
 ```sh
-bun install
-bun run check
+npm install
+npm run check
 ```
 
-## GitHub Reviews
+`npm run check` builds the workspace bundles and the public package, builds the test
+bundles, runs the suite under `node --test`, and typechecks.
 
-The repository includes an optional OpenCode pull-request review workflow at
-`.github/workflows/opencode-review.yml`. Add an `OPENCODE_API_KEY` Actions secret before
-enabling it. The workflow uses the OpenCode Zen `deepseek-v4-flash` model through the official
-`anomalyco/opencode/github` action and read-only pull-request permissions.
+### Integration Tests
 
-Monitor state is intentionally ignored by Git. Never commit real Jira keys, repository
-names, Slack URLs, session IDs, webhook payloads, or credentials in tests and examples.
+`npm run integration` packs every workspace package, installs the tarballs into an isolated
+consumer project, and runs real-life scenarios against the installed artifacts:
+
+- **core / daemon / cli / mcp** — store/queue/lock behavior, daemon lifecycle with event
+  delivery, the installed binary driving a live daemon, and the 2026 resource-subscription
+  flow against a real MCP HTTP server
+- **provider-\*** — each provider polling against mocked upstreams through a live daemon tick
+- **public-package** — the aggregate tarball alone: subpath imports, the npm-created bin,
+  daemon + RPC, no TypeScript in `dist`
+- **opencode / pi adapters** — run in their real hosts when available: headless `opencode
+  run` with the plugin installed and a temp state dir, and Pi RPC mode loading the
+  extension directly (each skips when its host is unavailable)
+
+Releases follow [docs/e2e-release-plan.md](./docs/e2e-release-plan.md): the exact tarball
+that publishes is tested with no private workspace packages installed, every scenario must
+pass with zero skips, and registry canaries gate config and tap updates.
+
+Monitor state is intentionally ignored by Git. Never commit Jira keys, repository names,
+Slack URLs, session IDs, webhook payloads, or credentials in tests and examples.
 
 ## License
 

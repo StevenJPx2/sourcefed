@@ -4,18 +4,37 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
+      - name: Remove previous automated reviews
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          comment_ids=$(gh api --paginate \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("opencode.ai/s/"))) | .id')
+          if [ -z "$comment_ids" ]; then
+            exit 0
+          fi
+          while IFS= read -r comment_id; do
+            [ -z "$comment_id" ] && continue
+            gh api --method DELETE "repos/${{ github.repository }}/issues/comments/${comment_id}"
+          done <<< "$comment_ids"
       - uses: anomalyco/opencode/github@latest
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
@@ -24,8 +43,17 @@ jobs:
           model: opencode/deepseek-v4-flash
           use_github_token: true
           prompt: |
-            Review this pull request:
-            - Check for correctness and security issues.
+            Review ONLY the code changes in this pull request. The PR thread may contain
+            previous review comments from this workflow (posted by github-actions[bot]);
+            those comments are NOT review material. Never critique, verify, or re-litigate
+            prior automated reviews, and never review conversation comments, review
+            bodies, or CI summaries as if they were code.
+
+            Your only subject is the code diff and the files it touches:
+            - Check the changed code for correctness and security issues.
             - Check that tests cover behavior changes.
             - Check that source-specific logic stays within its source boundary.
-            - Report only actionable findings.
+            - Report only actionable findings in the changed code.
+            - If there are no new actionable code findings, output exactly:
+              No new actionable code findings.
+            - Do not mention previous reviews, comments, or prior findings in the output.

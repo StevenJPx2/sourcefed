@@ -5,3 +5,10 @@ node_modules/
 !.env.example
 *.log
 .DS_Store
+dist/
+dist-tests/
+.integration/
+/.harper-dictionary.txt
+.tui-build/
+dist.dts/
+.cortexkit

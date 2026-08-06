@@ -1,0 +1,22 @@
+{
+  "name": "@sourcefed/provider-jira",
+  "version": "0.2.0",
+  "description": "Jira monitor provider for Sourcefed.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@sourcefed/core": "*",
+    "valibot": "1.4.2"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "private": true
+}

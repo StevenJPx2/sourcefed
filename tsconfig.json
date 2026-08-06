@@ -5,12 +5,21 @@
     "moduleResolution": "bundler",
     "jsx": "preserve",
     "jsxImportSource": "@opentui/solid",
-    "types": ["node", "bun"],
+    "types": ["node"],
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "tools/**/*.ts", "index.ts"]
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.tsx",
+    "providers/**/*.ts",
+    "providers/**/*.tsx",
+    "adapters/**/*.ts",
+    "adapters/**/*.tsx",
+    "index.ts",
+    "tui.ts"
+  ]
 }
