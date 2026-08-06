@@ -36,6 +36,18 @@ and the shared state store. Hosts provide a target identity and an event bridge.
 
 ## OpenCode And Pi
 
+Install the plugins in one step:
+
+```sh
+sourcefed setup                 # both hosts
+sourcefed setup opencode        # or one at a time
+sourcefed setup pi
+```
+
+`setup` delegates to each host's own installer: `opencode plugin @fdcn/sourcefed@<version> --global` (patches `opencode.json` and `tui.json`) and `pi install npm:@fdcn/sourcefed@<version>`. When a host binary is missing, it prints the manual instructions below.
+
+Manually, OpenCode takes the package in both plugin lists:
+
 ```json
 // opencode.json
 { "plugin": ["@fdcn/sourcefed@0.2.2"] }
@@ -46,11 +58,18 @@ and the shared state store. Hosts provide a target identity and an event bridge.
 { "plugin": ["@fdcn/sourcefed@0.2.2"] }
 ```
 
-OpenCode resolves the server entrypoint from `exports["./server"]` and the TUI plugin from
-`exports["./tui"]`; Pi loads the extension from the package's `pi` metadata. Both register
-`monitor_create`/`monitor_list`/`monitor_status`/`monitor_start`/`monitor_stop` tools, and
-`/sourcefed` plus `/sourcefed-logs` dialogs that show per-monitor detail (delivery, poll
-interval, created/updated timestamps, last poll, webhook heartbeat).
+Pi:
+
+```sh
+pi install npm:@fdcn/sourcefed@0.2.2
+```
+
+Restart the host after installing. OpenCode resolves the server entrypoint from
+`exports["./server"]` and the TUI plugin from `exports["./tui"]`; Pi loads the extension
+from the package's `pi` metadata. Both register `monitor_create`/`monitor_list`/
+`monitor_status`/`monitor_start`/`monitor_stop` tools, and `/sourcefed` plus
+`/sourcefed-logs` dialogs that show per-monitor detail (delivery, poll interval,
+created/updated timestamps, last poll, webhook heartbeat).
 
 Without `SOURCEFED_DAEMON_URL`, a host spawns one local HTTP daemon when none is running
 and connects to it, so monitors persist across sessions and share one registry.
