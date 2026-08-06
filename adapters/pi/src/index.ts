@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent"
+import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
@@ -204,6 +205,8 @@ async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[], targe
 }
 
 function cliEntry(): string {
+  const bundled = fileURLToPath(new URL("./cli.js", import.meta.url))
+  if (existsSync(bundled)) return bundled
   return fileURLToPath(import.meta.resolve("@sourcefed/cli"))
 }
 

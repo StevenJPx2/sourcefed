@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
@@ -93,6 +94,8 @@ export class OpenCodeBridge {
 }
 
 function cliEntry(): string {
+  const bundled = fileURLToPath(new URL("./cli.js", import.meta.url))
+  if (existsSync(bundled)) return bundled
   return fileURLToPath(import.meta.resolve("@sourcefed/cli"))
 }
 
