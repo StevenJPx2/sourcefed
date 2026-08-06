@@ -63,6 +63,16 @@ adapters (OpenCode, Pi) are all consumers of the daemon.
 - `sourcefed daemon [--port 18787]` — run the shared daemon (rpc, events, webhooks).
 - `sourcefed mcp --stdio|--http` — expose the daemon through MCP.
 - `sourcefed monitor create|list|status|stop` — drive a running daemon from the shell.
+- `sourcefed monitor follow` — tail new events live over SSE (drains queued events first);
+  use `sourcefed monitor events` for a one-shot snapshot and `monitor ack` to consume them.
+
+Without MCP, read events from the CLI:
+
+```bash
+sourcefed monitor follow &            # stream events in the background
+sourcefed monitor events              # or take a snapshot of what's queued
+sourcefed monitor ack --event-id $ID  # acknowledge what you consumed
+```
 
 When `SOURCEFED_DAEMON_URL` is unset, the OpenCode and Pi adapters spawn one
 local HTTP daemon automatically (if none is running) and connect to it, so

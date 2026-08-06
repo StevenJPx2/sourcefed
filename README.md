@@ -124,6 +124,7 @@ sourcefed monitor create --source-type slack --thread-url https://myteam.slack.c
 sourcefed monitor list
 sourcefed monitor status --id MONITOR_ID
 sourcefed monitor events
+sourcefed monitor follow       # live tail of new events (SSE); Ctrl+C to stop
 sourcefed monitor ack --event-id EVENT_ID
 sourcefed monitor stop --id MONITOR_ID
 sourcefed monitor start --id MONITOR_ID
@@ -136,6 +137,24 @@ Monitors belong to a target; the CLI defaults to `--target-kind cli` and `--targ
 monitors created for that target. Slack accepts `--thread-url` or `--channel-id` +
 `--thread-ts`; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
 when the daemon is not at the default URL.
+
+### Getting events without MCP
+
+Agents that don't integrate MCP can read events straight from the CLI:
+
+```sh
+# snapshot of queued events
+sourcefed monitor events
+
+# live tail — blocks and prints each new event as it arrives
+sourcefed monitor follow
+
+# acknowledge what you consumed so the next read starts clean
+sourcefed monitor ack --event-id EVENT_ID
+```
+
+`follow` drains the queued events first, then prints live ones over SSE. Pipe its
+stdout into a loop, a file, or the agent's own reader.
 
 ### Skills
 

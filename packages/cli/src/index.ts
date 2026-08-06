@@ -186,6 +186,21 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
       return
     }
 
+    if (subcommand === "follow") {
+      console.error(`[sourcefed] following events for ${target.kind}:${target.id}; Ctrl+C to stop`)
+      const listener = await client.subscribe(target, async (events) => {
+        for (const entry of events) {
+          const time = dim(new Date(entry.event.at).toLocaleString())
+          const marker = entry.event.actionable ? yellow("▶") : dim("·")
+          console.log(`${marker} ${time} ${entry.event.summary}`)
+          if (entry.event.body) console.log(dim(`    ${entry.event.body}`))
+        }
+      })
+      await new Promise<void>(() => {})
+      await listener.close()
+      return
+    }
+
     if (subcommand === "ack") {
       const eventIDs = (flag(args, "event-id") ?? "").split(",").filter(Boolean)
       if (eventIDs.length === 0) throw new Error("ack requires --event-id <id>[,<id>...]")
@@ -226,7 +241,7 @@ async function runMonitor(subcommand: string | undefined, args: string[]): Promi
     await client.close()
   }
 
-  throw new Error("monitor expects create, list, status, stop, start, remove, events, ack, logs, or sources")
+  throw new Error("monitor expects create, list, status, stop, start, remove, events, follow, ack, logs, or sources")
 }
 
 function flag(args: string[], name: string): string | undefined {
@@ -283,7 +298,7 @@ function printResult(result: unknown): void {
 function printUsage(): void {
   console.error("sourcefed daemon [--port PORT] [--host HOST]")
   console.error("sourcefed mcp --stdio|--http [--port PORT]")
-  console.error("sourcefed monitor create|list|status|stop|start|remove|events|ack|logs|sources [options]")
+  console.error("sourcefed monitor create|list|status|stop|start|remove|events|follow|ack|logs|sources [options]")
   console.error("sourcefed skills [list|get <name>|path [name]]")
 }
 
