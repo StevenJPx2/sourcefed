@@ -3927,36 +3927,12 @@ function MonitorDialog(props) {
           _$setProp2(_el$1, "scrollY", true);
           _$setProp2(_el$10, "flexDirection", "column");
           _$setProp2(_el$10, "width", "100%");
-          _$insert2(_el$10, () => active.map((monitor) => (() => {
-            var _el$11 = _$createElement2("box"), _el$12 = _$createElement2("text"), _el$14 = _$createElement2("text"), _el$15 = _$createTextNode2(` `), _el$16 = _$createTextNode2(` `), _el$17 = _$createElement2("text");
-            _$insertNode2(_el$11, _el$12);
-            _$insertNode2(_el$11, _el$14);
-            _$insertNode2(_el$11, _el$17);
-            _$setProp2(_el$11, "flexDirection", "row");
-            _$setProp2(_el$11, "width", "100%");
-            _$setProp2(_el$11, "minWidth", 0);
-            _$insertNode2(_el$12, _$createTextNode2(`\u25CF`));
-            _$insertNode2(_el$14, _el$15);
-            _$insertNode2(_el$14, _el$16);
-            _$insert2(_el$14, () => monitor.icon, _el$16);
-            _$setProp2(_el$17, "flexGrow", 1);
-            _$setProp2(_el$17, "flexShrink", 1);
-            _$setProp2(_el$17, "minWidth", 0);
-            _$setProp2(_el$17, "truncate", true);
-            _$insert2(_el$17, () => monitor.describe);
-            _$effect2((_p$) => {
-              var _v$3 = monitor.unresponsive ? theme().error : theme().success, _v$4 = theme().text, _v$5 = theme().text;
-              _v$3 !== _p$.e && (_p$.e = _$setProp2(_el$12, "fg", _v$3, _p$.e));
-              _v$4 !== _p$.t && (_p$.t = _$setProp2(_el$14, "fg", _v$4, _p$.t));
-              _v$5 !== _p$.a && (_p$.a = _$setProp2(_el$17, "fg", _v$5, _p$.a));
-              return _p$;
-            }, {
-              e: void 0,
-              t: void 0,
-              a: void 0
-            });
-            return _el$11;
-          })()));
+          _$insert2(_el$10, () => active.map((monitor) => _$createComponent2(MonitorCard, {
+            monitor,
+            get theme() {
+              return theme();
+            }
+          })));
           return _el$1;
         })();
       },
@@ -3979,111 +3955,180 @@ function MonitorDialog(props) {
     return _el$;
   })();
 }
+function MonitorCard(props) {
+  const monitor = props.monitor;
+  const theme = props.theme;
+  const status = monitor.unresponsive ? theme.error : monitor.enabled ? theme.success : theme.textMuted;
+  const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy";
+  const rows = [["Delivery", monitor.delivery], ["Poll interval", `${monitor.pollIntervalSec}s`], ["Created", formatTime(monitor.createdAt)], ["Updated", formatTime(monitor.updatedAt)], ["Last poll", formatTime(monitor.lastPolledAt)], ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)]];
+  return (() => {
+    var _el$11 = _$createElement2("box"), _el$12 = _$createElement2("box"), _el$13 = _$createElement2("text"), _el$15 = _$createElement2("text"), _el$16 = _$createTextNode2(` `), _el$17 = _$createTextNode2(` `), _el$18 = _$createElement2("text"), _el$19 = _$createTextNode2(` [`), _el$20 = _$createTextNode2(`]`);
+    _$insertNode2(_el$11, _el$12);
+    _$setProp2(_el$11, "flexDirection", "column");
+    _$setProp2(_el$11, "width", "100%");
+    _$setProp2(_el$11, "minWidth", 0);
+    _$setProp2(_el$11, "marginBottom", 1);
+    _$insertNode2(_el$12, _el$13);
+    _$insertNode2(_el$12, _el$15);
+    _$insertNode2(_el$12, _el$18);
+    _$setProp2(_el$12, "flexDirection", "row");
+    _$setProp2(_el$12, "width", "100%");
+    _$setProp2(_el$12, "minWidth", 0);
+    _$insertNode2(_el$13, _$createTextNode2(`\u25CF`));
+    _$setProp2(_el$13, "fg", status);
+    _$insertNode2(_el$15, _el$16);
+    _$insertNode2(_el$15, _el$17);
+    _$insert2(_el$15, () => monitor.icon, _el$17);
+    _$insert2(_el$15, () => monitor.describe, null);
+    _$insertNode2(_el$18, _el$19);
+    _$insertNode2(_el$18, _el$20);
+    _$setProp2(_el$18, "fg", status);
+    _$setProp2(_el$18, "flexGrow", 1);
+    _$setProp2(_el$18, "flexShrink", 1);
+    _$setProp2(_el$18, "minWidth", 0);
+    _$setProp2(_el$18, "truncate", true);
+    _$insert2(_el$18, statusLabel, _el$20);
+    _$insert2(_el$11, () => rows.map(([label, value]) => (() => {
+      var _el$21 = _$createElement2("box"), _el$22 = _$createElement2("text"), _el$23 = _$createTextNode2(`: `), _el$24 = _$createElement2("text");
+      _$insertNode2(_el$21, _el$22);
+      _$insertNode2(_el$21, _el$24);
+      _$setProp2(_el$21, "flexDirection", "row");
+      _$setProp2(_el$21, "width", "100%");
+      _$setProp2(_el$21, "minWidth", 0);
+      _$insertNode2(_el$22, _el$23);
+      _$setProp2(_el$22, "flexShrink", 0);
+      _$insert2(_el$22, label, _el$23);
+      _$setProp2(_el$24, "flexGrow", 1);
+      _$setProp2(_el$24, "flexShrink", 1);
+      _$setProp2(_el$24, "minWidth", 0);
+      _$setProp2(_el$24, "truncate", true);
+      _$insert2(_el$24, value);
+      _$effect2((_p$) => {
+        var _v$3 = theme.textMuted, _v$4 = theme.text;
+        _v$3 !== _p$.e && (_p$.e = _$setProp2(_el$22, "fg", _v$3, _p$.e));
+        _v$4 !== _p$.t && (_p$.t = _$setProp2(_el$24, "fg", _v$4, _p$.t));
+        return _p$;
+      }, {
+        e: void 0,
+        t: void 0
+      });
+      return _el$21;
+    })()), null);
+    _$effect2((_$p) => _$setProp2(_el$15, "fg", theme.text, _$p));
+    return _el$11;
+  })();
+}
+function formatTime(value) {
+  if (!value) return "never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
 function LogsDialog(props) {
   const theme = createMemo2(() => props.api.theme.current);
   const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45));
   return (() => {
-    var _el$18 = _$createElement2("box"), _el$19 = _$createElement2("box"), _el$20 = _$createElement2("text"), _el$21 = _$createTextNode2(`Sourcefed notifications (`), _el$22 = _$createTextNode2(`)`), _el$23 = _$createElement2("box"), _el$24 = _$createElement2("text");
-    _$insertNode2(_el$18, _el$19);
-    _$setProp2(_el$18, "flexDirection", "column");
-    _$setProp2(_el$18, "width", "100%");
-    _$setProp2(_el$18, "paddingX", 2);
-    _$setProp2(_el$18, "paddingY", 1);
-    _$insertNode2(_el$19, _el$20);
-    _$insertNode2(_el$19, _el$23);
-    _$insertNode2(_el$19, _el$24);
-    _$setProp2(_el$19, "flexDirection", "row");
-    _$setProp2(_el$19, "width", "100%");
-    _$setProp2(_el$19, "minWidth", 0);
-    _$insertNode2(_el$20, _el$21);
-    _$insertNode2(_el$20, _el$22);
-    _$setProp2(_el$20, "attributes", 1);
-    _$insert2(_el$20, () => props.logs.length, _el$22);
-    _$setProp2(_el$23, "flexGrow", 1);
-    _$insertNode2(_el$24, _$createTextNode2(`esc`));
-    _$insert2(_el$18, _$createComponent2(Show2, {
+    var _el$25 = _$createElement2("box"), _el$26 = _$createElement2("box"), _el$27 = _$createElement2("text"), _el$28 = _$createTextNode2(`Sourcefed notifications (`), _el$29 = _$createTextNode2(`)`), _el$30 = _$createElement2("box"), _el$31 = _$createElement2("text");
+    _$insertNode2(_el$25, _el$26);
+    _$setProp2(_el$25, "flexDirection", "column");
+    _$setProp2(_el$25, "width", "100%");
+    _$setProp2(_el$25, "paddingX", 2);
+    _$setProp2(_el$25, "paddingY", 1);
+    _$insertNode2(_el$26, _el$27);
+    _$insertNode2(_el$26, _el$30);
+    _$insertNode2(_el$26, _el$31);
+    _$setProp2(_el$26, "flexDirection", "row");
+    _$setProp2(_el$26, "width", "100%");
+    _$setProp2(_el$26, "minWidth", 0);
+    _$insertNode2(_el$27, _el$28);
+    _$insertNode2(_el$27, _el$29);
+    _$setProp2(_el$27, "attributes", 1);
+    _$insert2(_el$27, () => props.logs.length, _el$29);
+    _$setProp2(_el$30, "flexGrow", 1);
+    _$insertNode2(_el$31, _$createTextNode2(`esc`));
+    _$insert2(_el$25, _$createComponent2(Show2, {
       get when() {
         return props.logs.length > 0;
       },
       get fallback() {
         return (() => {
-          var _el$28 = _$createElement2("text");
-          _$insertNode2(_el$28, _$createTextNode2(`No notifications sent yet`));
-          _$effect2((_$p) => _$setProp2(_el$28, "fg", theme().textMuted, _$p));
-          return _el$28;
+          var _el$35 = _$createElement2("text");
+          _$insertNode2(_el$35, _$createTextNode2(`No notifications sent yet`));
+          _$effect2((_$p) => _$setProp2(_el$35, "fg", theme().textMuted, _$p));
+          return _el$35;
         })();
       },
       get children() {
-        var _el$26 = _$createElement2("scrollbox"), _el$27 = _$createElement2("box");
-        _$insertNode2(_el$26, _el$27);
-        _$setProp2(_el$26, "maxHeight", maxListRows);
-        _$setProp2(_el$26, "scrollY", true);
-        _$setProp2(_el$26, "stickyScroll", true);
-        _$setProp2(_el$26, "stickyStart", "bottom");
-        _$setProp2(_el$27, "flexDirection", "column");
-        _$setProp2(_el$27, "width", "100%");
-        _$insert2(_el$27, () => props.logs.map((entry) => (() => {
-          var _el$30 = _$createElement2("box"), _el$31 = _$createElement2("box"), _el$32 = _$createElement2("text"), _el$33 = _$createElement2("text"), _el$34 = _$createTextNode2(` `), _el$35 = _$createElement2("text"), _el$36 = _$createTextNode2(` `), _el$37 = _$createTextNode2(` `);
-          _$insertNode2(_el$30, _el$31);
-          _$setProp2(_el$30, "flexDirection", "column");
-          _$setProp2(_el$30, "width", "100%");
-          _$insertNode2(_el$31, _el$32);
-          _$insertNode2(_el$31, _el$33);
-          _$insertNode2(_el$31, _el$35);
-          _$setProp2(_el$31, "flexDirection", "row");
-          _$setProp2(_el$31, "width", "100%");
-          _$setProp2(_el$31, "minWidth", 0);
-          _$insert2(_el$32, () => entry.actionable ? "\u25B6" : "\xB7");
-          _$insertNode2(_el$33, _el$34);
-          _$setProp2(_el$33, "flexShrink", 0);
-          _$setProp2(_el$33, "minWidth", 0);
-          _$insert2(_el$33, () => entry.icon, null);
-          _$insertNode2(_el$35, _el$36);
-          _$insertNode2(_el$35, _el$37);
-          _$setProp2(_el$35, "flexGrow", 1);
-          _$setProp2(_el$35, "flexShrink", 1);
-          _$setProp2(_el$35, "minWidth", 0);
-          _$setProp2(_el$35, "truncate", true);
-          _$insert2(_el$35, () => new Date(entry.at).toLocaleString(), _el$37);
-          _$insert2(_el$35, () => entry.summary, null);
-          _$insert2(_el$30, _$createComponent2(Show2, {
+        var _el$33 = _$createElement2("scrollbox"), _el$34 = _$createElement2("box");
+        _$insertNode2(_el$33, _el$34);
+        _$setProp2(_el$33, "maxHeight", maxListRows);
+        _$setProp2(_el$33, "scrollY", true);
+        _$setProp2(_el$33, "stickyScroll", true);
+        _$setProp2(_el$33, "stickyStart", "bottom");
+        _$setProp2(_el$34, "flexDirection", "column");
+        _$setProp2(_el$34, "width", "100%");
+        _$insert2(_el$34, () => props.logs.map((entry) => (() => {
+          var _el$37 = _$createElement2("box"), _el$38 = _$createElement2("box"), _el$39 = _$createElement2("text"), _el$40 = _$createElement2("text"), _el$41 = _$createTextNode2(` `), _el$42 = _$createElement2("text"), _el$43 = _$createTextNode2(` `), _el$44 = _$createTextNode2(` `);
+          _$insertNode2(_el$37, _el$38);
+          _$setProp2(_el$37, "flexDirection", "column");
+          _$setProp2(_el$37, "width", "100%");
+          _$insertNode2(_el$38, _el$39);
+          _$insertNode2(_el$38, _el$40);
+          _$insertNode2(_el$38, _el$42);
+          _$setProp2(_el$38, "flexDirection", "row");
+          _$setProp2(_el$38, "width", "100%");
+          _$setProp2(_el$38, "minWidth", 0);
+          _$insert2(_el$39, () => entry.actionable ? "\u25B6" : "\xB7");
+          _$insertNode2(_el$40, _el$41);
+          _$setProp2(_el$40, "flexShrink", 0);
+          _$setProp2(_el$40, "minWidth", 0);
+          _$insert2(_el$40, () => entry.icon, null);
+          _$insertNode2(_el$42, _el$43);
+          _$insertNode2(_el$42, _el$44);
+          _$setProp2(_el$42, "flexGrow", 1);
+          _$setProp2(_el$42, "flexShrink", 1);
+          _$setProp2(_el$42, "minWidth", 0);
+          _$setProp2(_el$42, "truncate", true);
+          _$insert2(_el$42, () => new Date(entry.at).toLocaleString(), _el$44);
+          _$insert2(_el$42, () => entry.summary, null);
+          _$insert2(_el$37, _$createComponent2(Show2, {
             get when() {
               return entry.body;
             },
             get children() {
-              var _el$38 = _$createElement2("text"), _el$39 = _$createTextNode2(` `);
-              _$insertNode2(_el$38, _el$39);
-              _$insert2(_el$38, () => entry.body, null);
-              _$effect2((_$p) => _$setProp2(_el$38, "fg", theme().textMuted, _$p));
-              return _el$38;
+              var _el$45 = _$createElement2("text"), _el$46 = _$createTextNode2(` `);
+              _$insertNode2(_el$45, _el$46);
+              _$insert2(_el$45, () => entry.body, null);
+              _$effect2((_$p) => _$setProp2(_el$45, "fg", theme().textMuted, _$p));
+              return _el$45;
             }
           }), null);
           _$effect2((_p$) => {
-            var _v$8 = entry.actionable ? theme().warning : theme().textMuted, _v$9 = theme().text, _v$0 = theme().text;
-            _v$8 !== _p$.e && (_p$.e = _$setProp2(_el$32, "fg", _v$8, _p$.e));
-            _v$9 !== _p$.t && (_p$.t = _$setProp2(_el$33, "fg", _v$9, _p$.t));
-            _v$0 !== _p$.a && (_p$.a = _$setProp2(_el$35, "fg", _v$0, _p$.a));
+            var _v$7 = entry.actionable ? theme().warning : theme().textMuted, _v$8 = theme().text, _v$9 = theme().text;
+            _v$7 !== _p$.e && (_p$.e = _$setProp2(_el$39, "fg", _v$7, _p$.e));
+            _v$8 !== _p$.t && (_p$.t = _$setProp2(_el$40, "fg", _v$8, _p$.t));
+            _v$9 !== _p$.a && (_p$.a = _$setProp2(_el$42, "fg", _v$9, _p$.a));
             return _p$;
           }, {
             e: void 0,
             t: void 0,
             a: void 0
           });
-          return _el$30;
+          return _el$37;
         })()));
-        return _el$26;
+        return _el$33;
       }
     }), null);
     _$effect2((_p$) => {
-      var _v$6 = theme().text, _v$7 = theme().textMuted;
-      _v$6 !== _p$.e && (_p$.e = _$setProp2(_el$20, "fg", _v$6, _p$.e));
-      _v$7 !== _p$.t && (_p$.t = _$setProp2(_el$24, "fg", _v$7, _p$.t));
+      var _v$5 = theme().text, _v$6 = theme().textMuted;
+      _v$5 !== _p$.e && (_p$.e = _$setProp2(_el$27, "fg", _v$5, _p$.e));
+      _v$6 !== _p$.t && (_p$.t = _$setProp2(_el$31, "fg", _v$6, _p$.t));
       return _p$;
     }, {
       e: void 0,
       t: void 0
     });
-    return _el$18;
+    return _el$25;
   })();
 }
 

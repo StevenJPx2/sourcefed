@@ -95,15 +95,7 @@ function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
       <Show when={active.length === 0} fallback={
         <scrollbox maxHeight={maxListRows} scrollY>
           <box flexDirection="column" width="100%">
-            {active.map((monitor) => (
-              <box flexDirection="row" width="100%" minWidth={0}>
-                <text fg={monitor.unresponsive ? theme().error : theme().success}>●</text>
-                <text fg={theme().text}> {monitor.icon} </text>
-                <text fg={theme().text} flexGrow={1} flexShrink={1} minWidth={0} truncate>
-                  {monitor.describe}
-                </text>
-              </box>
-            ))}
+            {active.map((monitor) => <MonitorCard monitor={monitor} theme={theme()} />)}
           </box>
         </scrollbox>
       }>
@@ -111,6 +103,43 @@ function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
       </Show>
     </box>
   )
+}
+
+function MonitorCard(props: { monitor: MonitorView; theme: TuiThemeCurrent }) {
+  const monitor = props.monitor
+  const theme = props.theme
+  const status = monitor.unresponsive ? theme.error : monitor.enabled ? theme.success : theme.textMuted
+  const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy"
+  const rows: Array<[string, string]> = [
+    ["Delivery", monitor.delivery],
+    ["Poll interval", `${monitor.pollIntervalSec}s`],
+    ["Created", formatTime(monitor.createdAt)],
+    ["Updated", formatTime(monitor.updatedAt)],
+    ["Last poll", formatTime(monitor.lastPolledAt)],
+    ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)],
+  ]
+  return (
+    <box flexDirection="column" width="100%" minWidth={0} marginBottom={1}>
+      <box flexDirection="row" width="100%" minWidth={0}>
+        <text fg={status}>●</text>
+        <text fg={theme.text}> {monitor.icon} {monitor.describe}</text>
+        <text fg={status} flexGrow={1} flexShrink={1} minWidth={0} truncate> [{statusLabel}]</text>
+      </box>
+      {rows.map(([label, value]) => (
+        <box flexDirection="row" width="100%" minWidth={0}>
+          <text fg={theme.textMuted} flexShrink={0}>{label}: </text>
+          <text fg={theme.text} flexGrow={1} flexShrink={1} minWidth={0} truncate>{value}</text>
+        </box>
+      ))}
+    </box>
+  )
+}
+
+function formatTime(value: string | undefined): string {
+  if (!value) return "never"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
 }
 
 function LogsDialog(props: { api: TuiPluginApi; logs: LogEntryView[] }) {

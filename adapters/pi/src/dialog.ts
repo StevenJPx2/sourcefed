@@ -40,12 +40,32 @@ export function showSourcefedDialog(
 export function monitorLines(monitors: MonitorView[], theme: Theme): Line[] {
   const active = monitors.filter((monitor) => monitor.enabled)
   if (active.length === 0) return [{ text: theme.fg("dim", "No active monitors") }]
-  return active.map((monitor) => {
+  return active.flatMap((monitor) => {
     const status = monitor.unresponsive ? theme.fg("error", "●") : theme.fg("success", "●")
     const describe = theme.fg("text", monitor.describe)
     const detail = monitor.detail ? theme.fg("muted", monitor.detail) : ""
-    return { text: `${status} ${monitor.icon} ${describe}${detail}` }
+    const statusLabel = monitor.unresponsive ? "recovering connection" : "healthy"
+    const rows: Array<[string, string]> = [
+      ["Name", monitor.name],
+      ["Delivery", monitor.delivery],
+      ["Poll interval", `${monitor.pollIntervalSec}s`],
+      ["Created", formatTime(monitor.createdAt)],
+      ["Updated", formatTime(monitor.updatedAt)],
+      ["Last poll", formatTime(monitor.lastPolledAt)],
+      ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)],
+    ]
+    return [
+      { text: `${status} ${monitor.icon} ${describe}${detail} [${statusLabel}]` },
+      ...rows.map(([label, value]) => ({ text: theme.fg("muted", `   ${label}: ${value}`) })),
+    ]
   })
+}
+
+function formatTime(value: string | undefined): string {
+  if (!value) return "never"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString()
 }
 
 export function logLines(logs: LogEntryView[], theme: Theme): Line[] {

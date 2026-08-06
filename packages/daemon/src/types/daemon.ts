@@ -34,6 +34,8 @@ export type MonitorView = {
   detail: string
   describe: string
   unresponsive: boolean
+  lastPolledAt?: string
+  webhookHeartbeatAt?: string
 }
 
 export type LogEntryView = {

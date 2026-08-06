@@ -232,7 +232,15 @@ export function monitorView(monitor: MonitorRecord): MonitorView {
     detail: definition.detail(monitor.source),
     describe: definition.describe(monitor.source),
     unresponsive: definition.unresponsive(monitor),
+    lastPolledAt: cursorTime(monitor.cursors.__lastPolledAt ?? monitor.cursors.__lastAttemptAt),
+    webhookHeartbeatAt: cursorTime(monitor.cursors.__webhookHeartbeatAt),
   }
+}
+
+function cursorTime(value: unknown): string | undefined {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined
+  return new Date(numeric).toISOString()
 }
 
 export function logEntryView(queued: QueuedMonitorEvent): LogEntryView {
