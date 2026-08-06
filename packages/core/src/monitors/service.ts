@@ -70,6 +70,11 @@ export class MonitorService {
     return this.transact((registry) => {
       const monitor = registry.monitors.find((entry) => entry.id === id)
       if (!monitor) return { error: `monitor ${id} was not found` }
+      const identity = monitorIdentity(monitor.target, monitor.source)
+      const duplicate = registry.monitors.find(
+        (entry) => entry.id !== id && entry.enabled && monitorIdentity(entry.target, entry.source) === identity,
+      )
+      if (duplicate) return { error: `monitor ${id} duplicates active monitor ${duplicate.id} for the same source` }
       monitor.enabled = true
       monitor.updatedAt = new Date().toISOString()
       return monitor

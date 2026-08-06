@@ -41,4 +41,24 @@ describe("MonitorService", () => {
     await service.remove(created.monitor.id)
     assert.equal(await service.get(created.monitor.id), undefined)
   })
+
+  test("start rejects a stopped monitor whose identity is active again", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    const input = {
+      name: "first",
+      source: { type: "test", key: "issue-1" },
+      delivery: "poll" as const,
+      target: { kind: "test", id: "session-1" },
+      pollIntervalSec: 60,
+    }
+
+    const first = await service.create(input)
+    await service.stop(first.monitor.id)
+    const replacement = await service.create(input)
+    assert.equal(replacement.created, true)
+
+    const restarted = await service.start(first.monitor.id)
+    assert.equal("error" in restarted, true, "starting the old monitor is rejected")
+    assert.equal((await service.list()).filter((monitor) => monitor.enabled).length, 1)
+  })
 })

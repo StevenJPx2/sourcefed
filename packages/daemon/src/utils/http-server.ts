@@ -13,7 +13,10 @@ export type HttpServer = {
 }
 
 export async function serveHttp(options: HttpServerOptions): Promise<HttpServer> {
+  const active = new Set<ServerResponse>()
   const server = createServer((incoming, outgoing) => {
+    active.add(outgoing)
+    outgoing.on("close", () => active.delete(outgoing))
     void handle(incoming, outgoing, options.handler)
   })
   // SSE connections (/events) are long-lived and idle; the Node default
@@ -38,6 +41,10 @@ export async function serveHttp(options: HttpServerOptions): Promise<HttpServer>
   return {
     port,
     async stop(): Promise<void> {
+      for (const outgoing of active) {
+        outgoing.destroy()
+      }
+      active.clear()
       server.closeIdleConnections?.()
       await new Promise<void>((resolve) => {
         server.close(() => resolve())

@@ -114,6 +114,29 @@ describe("daemon clients", () => {
     }
   })
 
+  test("stop closes active SSE streams", async () => {
+    const daemon = new SourcefedDaemon({
+      store: new InMemoryMonitorStore(),
+      eventQueue: new InMemoryMonitorEventQueue(),
+    })
+    const server = await serveHttp({
+      hostname: "127.0.0.1",
+      port: 0,
+      handler: (request: Request) => handleDaemonHttpRequest(daemon, request),
+    })
+
+    const client = await connectDaemonClient({ name: "sourcefed-test", url: `http://127.0.0.1:${server.port}` })
+    const listener = await client.subscribe({ kind: "test", id: "session-1" }, async () => {})
+
+    await Promise.race([
+      server.stop(),
+      new Promise((_resolve, reject) => setTimeout(() => reject(new Error("server.stop hung on an open SSE stream")), 2_000)),
+    ])
+
+    await listener.close().catch(() => {})
+    await client.close().catch(() => {})
+  })
+
   test("rejects unauthenticated requests when a token is configured", async () => {
     const daemon = new SourcefedDaemon({
       store: new InMemoryMonitorStore(),
