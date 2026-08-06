@@ -248,6 +248,7 @@ var sourcefedTui = async (api) => {
 };
 function MonitorDialog(props) {
   const theme = createMemo2(() => props.api.theme.current);
+  const active = props.monitors.filter((monitor) => monitor.enabled);
   return (() => {
     var _el$ = _$createElement2("box"), _el$2 = _$createElement2("text"), _el$3 = _$createTextNode2(`Sourcefed monitors (`), _el$4 = _$createTextNode2(`)`);
     _$insertNode2(_el$, _el$2);
@@ -255,31 +256,30 @@ function MonitorDialog(props) {
     _$setProp2(_el$, "width", "100%");
     _$insertNode2(_el$2, _el$3);
     _$insertNode2(_el$2, _el$4);
-    _$insert2(_el$2, () => props.monitors.length, _el$4);
+    _$insert2(_el$2, () => active.length, _el$4);
     _$insert2(_el$, _$createComponent2(Show2, {
       get when() {
-        return props.monitors.length === 0;
+        return active.length === 0;
       },
       get fallback() {
         return (() => {
           var _el$7 = _$createElement2("box");
           _$setProp2(_el$7, "flexDirection", "column");
           _$setProp2(_el$7, "width", "100%");
-          _$insert2(_el$7, () => props.monitors.map((monitor) => (() => {
-            var _el$8 = _$createElement2("box"), _el$9 = _$createElement2("text"), _el$0 = _$createTextNode2(` `), _el$1 = _$createElement2("text"), _el$10 = _$createTextNode2(` `), _el$11 = _$createElement2("text");
+          _$insert2(_el$7, () => active.map((monitor) => (() => {
+            var _el$8 = _$createElement2("box"), _el$9 = _$createElement2("text"), _el$1 = _$createElement2("text"), _el$10 = _$createTextNode2(` `), _el$11 = _$createElement2("text");
             _$insertNode2(_el$8, _el$9);
             _$insertNode2(_el$8, _el$1);
             _$insertNode2(_el$8, _el$11);
             _$setProp2(_el$8, "flexDirection", "row");
             _$setProp2(_el$8, "width", "100%");
-            _$insertNode2(_el$9, _el$0);
-            _$insert2(_el$9, () => monitor.enabled ? "\u25CF" : "\u25CB", _el$0);
+            _$insertNode2(_el$9, _$createTextNode2(`\u25CF `));
             _$insertNode2(_el$1, _el$10);
             _$insert2(_el$1, () => monitor.icon, _el$10);
             _$insert2(_el$1, () => monitor.describe, null);
             _$insert2(_el$11, () => monitor.detail);
             _$effect2((_p$) => {
-              var _v$ = monitor.enabled ? theme().success : theme().textMuted, _v$2 = theme().text, _v$3 = theme().textMuted;
+              var _v$ = monitor.unresponsive ? theme().error : theme().success, _v$2 = theme().text, _v$3 = theme().textMuted;
               _v$ !== _p$.e && (_p$.e = _$setProp2(_el$9, "fg", _v$, _p$.e));
               _v$2 !== _p$.t && (_p$.t = _$setProp2(_el$1, "fg", _v$2, _p$.t));
               _v$3 !== _p$.a && (_p$.a = _$setProp2(_el$11, "fg", _v$3, _p$.a));

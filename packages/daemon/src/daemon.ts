@@ -231,6 +231,7 @@ export function monitorView(monitor: MonitorRecord): MonitorView {
     label: definition.label(monitor.source),
     detail: definition.detail(monitor.source),
     describe: definition.describe(monitor.source),
+    unresponsive: definition.unresponsive(monitor),
   }
 }
 

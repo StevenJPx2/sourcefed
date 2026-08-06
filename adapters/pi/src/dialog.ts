@@ -1,18 +1,21 @@
 import type { Theme } from "@earendil-works/pi-coding-agent"
 import type { Component, TUI } from "@earendil-works/pi-tui"
 import { Container, Spacer, Text, truncateToWidth } from "@earendil-works/pi-tui"
+import { DynamicBorder } from "@earendil-works/pi-coding-agent"
 import type { LogEntryView, MonitorView } from "@sourcefed/daemon"
 
 type Line = { text: string }
 
 export function showSourcefedDialog(
-  tui: TUI,
+  _tui: TUI,
   theme: Theme,
   done: (result: null) => void,
   title: string,
   lines: Line[],
 ): Component & { handleInput(data: string): void } {
   const container = new Container()
+
+  container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)))
   container.addChild(new Text(theme.fg("accent", theme.bold(title)), 1, 0))
   container.addChild(new Spacer(1))
   for (const line of lines) {
@@ -20,11 +23,12 @@ export function showSourcefedDialog(
   }
   container.addChild(new Spacer(1))
   container.addChild(new Text(theme.fg("dim", "esc to close"), 1, 0))
+  container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)))
 
   return {
     render: (width) => {
-      const lines = container.render(width)
-      return lines.map((line) => truncateToWidth(line, width))
+      const rendered = container.render(width)
+      return rendered.map((line) => truncateToWidth(line, width))
     },
     invalidate: () => container.invalidate(),
     handleInput: (data) => {
@@ -36,7 +40,7 @@ export function showSourcefedDialog(
 export function monitorLines(monitors: MonitorView[], theme: Theme): Line[] {
   if (monitors.length === 0) return [{ text: theme.fg("dim", "No active monitors") }]
   return monitors.map((monitor) => {
-    const status = monitor.enabled ? theme.fg("success", "●") : theme.fg("error", "○")
+    const status = monitor.unresponsive ? theme.fg("error", "●") : theme.fg("success", "●")
     const describe = theme.fg("text", monitor.describe)
     const detail = monitor.detail ? theme.fg("muted", monitor.detail) : ""
     return { text: `${status} ${monitor.icon} ${describe}${detail}` }

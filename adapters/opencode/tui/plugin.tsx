@@ -83,14 +83,15 @@ export const sourcefedTui: TuiPlugin = async (api: TuiPluginApi) => {
 
 function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
   const theme = createMemo(() => (props.api as unknown as { theme: { current: TuiThemeCurrent } }).theme.current)
+  const active = props.monitors.filter((monitor) => monitor.enabled)
   return (
     <box flexDirection="column" width="100%">
-      <text fg={theme().accent}>Sourcefed monitors ({props.monitors.length})</text>
-      <Show when={props.monitors.length === 0} fallback={
+      <text fg={theme().accent}>Sourcefed monitors ({active.length})</text>
+      <Show when={active.length === 0} fallback={
         <box flexDirection="column" width="100%">
-          {props.monitors.map((monitor) => (
+          {active.map((monitor) => (
             <box flexDirection="row" width="100%">
-              <text fg={monitor.enabled ? theme().success : theme().textMuted}>{monitor.enabled ? "●" : "○"} </text>
+              <text fg={monitor.unresponsive ? theme().error : theme().success}>● </text>
               <text fg={theme().text}>{monitor.icon} {monitor.describe}</text>
               <text fg={theme().textMuted}>{monitor.detail}</text>
             </box>

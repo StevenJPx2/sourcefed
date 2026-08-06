@@ -116,20 +116,30 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   async function refreshStatus(): Promise<void> {
     const ctx = statusCtx
     if (!ctx) return
-    const result = (await call(ctx, "monitor_list", {})) as { monitors?: unknown[] }
+    const result = (await call(ctx, "monitor_list", {})) as { monitors?: MonitorView[] }
     const monitors = Array.isArray(result?.monitors) ? result.monitors : []
-    if (monitors.length === 0) {
+    // Only active monitors count; stopped/removed ones drop out entirely.
+    const active = monitors.filter((monitor) => monitor.enabled)
+    if (active.length === 0) {
       ctx.ui.setStatus("sourcefed", undefined)
       return
     }
-    const icons = monitors.map((monitor) => {
-      const record = monitor as Record<string, unknown>
-      const source = (record.source ?? {}) as Record<string, unknown>
-      const icon = SOURCE_ICONS[String(source.type ?? "")] ?? "?"
-      return ctx.ui.theme.fg(record.enabled ? "success" : "error", icon)
+    // Group by source: icon + active count. Red only when a monitor of that
+    // source is unresponsive (error); otherwise the normal accent color.
+    const bySource = new Map<string, { count: number; unresponsive: boolean }>()
+    for (const monitor of active) {
+      const type = String(monitor.source && typeof monitor.source === "object" && "type" in monitor.source ? monitor.source.type : "")
+      const entry = bySource.get(type) ?? { count: 0, unresponsive: false }
+      entry.count += 1
+      if (monitor.unresponsive) entry.unresponsive = true
+      bySource.set(type, entry)
+    }
+    const parts = [...bySource.entries()].map(([type, entry]) => {
+      const icon = SOURCE_ICONS[type] ?? "?"
+      const colored = entry.unresponsive ? ctx.ui.theme.fg("error", icon) : ctx.ui.theme.fg("success", icon)
+      return `${colored}${entry.count}`
     })
-    const line = monitors.length > 1 ? `${icons.join(" ")} (${monitors.length})` : icons.join(" ")
-    ctx.ui.setStatus("sourcefed", line)
+    ctx.ui.setStatus("sourcefed", parts.join(" "))
   }
 
   async function call(ctx: ExtensionContext, name: string, args: Record<string, unknown>): Promise<unknown> {

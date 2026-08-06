@@ -33,6 +33,7 @@ export type MonitorView = {
   label: string
   detail: string
   describe: string
+  unresponsive: boolean
 }
 
 export type LogEntryView = {
