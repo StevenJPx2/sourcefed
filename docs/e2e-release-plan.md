@@ -4,20 +4,21 @@
 
 Every npm release of `@fdcn/sourcefed` is tested as the exact tarball that will be published. The release gate covers the CLI, daemon, MCP transports, OpenCode server and TUI plugins, Pi extension, and Homebrew formula without relying on private workspace packages or existing user state.
 
-The release command is:
+The release pipeline is three commands, each with one job:
 
 ```sh
-npm run release -- 0.2.4            # prompts for the npm 2FA code on the terminal
-npm run release -- 0.2.4 --otp 123456
+npm run release          # changelogen: version bump from conventional commits, CHANGELOG.md, tag, push
+npm run release:publish  # gates, pack, aggregate-only canary, publish the exact tarball (2FA), registry canary
+npm run release:pins     # opt-in: dotfiles/pi/Homebrew pins, run after a successful publish
 ```
 
-`scripts/release/publish.mjs` runs the whole chain from a clean `main` checkout: bumps the
-version, runs the gates, packs the exact tarball, canaries it in an aggregate-only consumer,
-publishes that tarball, canaries the registry copy, updates the dotfiles/pi/Homebrew pins,
-and tags `v<version>` so the Release workflow creates the GitHub release.
-
-The release command is the only supported publish path. It accepts no rebuild after
-verification and rejects a dirty tree or a non-`main` branch.
+`changelogen --release --push` owns versioning: it derives the next version from commit
+types, writes `CHANGELOG.md`, commits, and tags `v<version>`; the Release workflow creates
+the GitHub release from that tag. `scripts/release/publish.mjs` reads the bumped version
+from the root manifest, syncs the aggregate package and README pins, runs the gates, packs
+and canaries the exact tarball, publishes it with a terminal 2FA prompt, and canaries the
+registry copy. Deployment pins live in `scripts/release/pins.mjs` — a separate opt-in step,
+not part of the release.
 
 ## Artifact Flow
 
