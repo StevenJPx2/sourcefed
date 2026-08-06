@@ -54,10 +54,10 @@ export const sourcefedTui: TuiPlugin = async (api: TuiPluginApi) => {
       },
     },
     {
-      value: "sourcefed logs",
+      value: "sourcefed-logs",
       title: "Sourcefed logs",
       description: "Show recent Sourcefed notifications for the current OpenCode session",
-      slash: { name: "sourcefed logs" },
+      slash: { name: "sourcefed-logs" },
       onSelect: async (dialog) => {
         const sessionID = getSessionID()
         if (!sessionID) {
@@ -84,19 +84,28 @@ export const sourcefedTui: TuiPlugin = async (api: TuiPluginApi) => {
 function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
   const theme = createMemo(() => (props.api as unknown as { theme: { current: TuiThemeCurrent } }).theme.current)
   const active = props.monitors.filter((monitor) => monitor.enabled)
+  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45))
   return (
-    <box flexDirection="column" width="100%">
-      <text fg={theme().accent}>Sourcefed monitors ({active.length})</text>
+    <box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
+      <box flexDirection="row" width="100%" minWidth={0}>
+        <text fg={theme().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed monitors ({active.length})</text>
+        <box flexGrow={1} />
+        <text fg={theme().textMuted}>esc</text>
+      </box>
       <Show when={active.length === 0} fallback={
-        <box flexDirection="column" width="100%">
-          {active.map((monitor) => (
-            <box flexDirection="row" width="100%">
-              <text fg={monitor.unresponsive ? theme().error : theme().success}>● </text>
-              <text fg={theme().text}>{monitor.icon} {monitor.describe}</text>
-              <text fg={theme().textMuted}>{monitor.detail}</text>
-            </box>
-          ))}
-        </box>
+        <scrollbox maxHeight={maxListRows} scrollY>
+          <box flexDirection="column" width="100%">
+            {active.map((monitor) => (
+              <box flexDirection="row" width="100%" minWidth={0}>
+                <text fg={monitor.unresponsive ? theme().error : theme().success}>●</text>
+                <text fg={theme().text}> {monitor.icon} </text>
+                <text fg={theme().text} flexGrow={1} flexShrink={1} minWidth={0} truncate>
+                  {monitor.describe}
+                </text>
+              </box>
+            ))}
+          </box>
+        </scrollbox>
       }>
         <text fg={theme().textMuted}>No active monitors</text>
       </Show>
@@ -106,23 +115,31 @@ function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
 
 function LogsDialog(props: { api: TuiPluginApi; logs: LogEntryView[] }) {
   const theme = createMemo(() => (props.api as unknown as { theme: { current: TuiThemeCurrent } }).theme.current)
+  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45))
   return (
-    <box flexDirection="column" width="100%">
-      <text fg={theme().accent}>Sourcefed notifications ({props.logs.length})</text>
+    <box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
+      <box flexDirection="row" width="100%" minWidth={0}>
+        <text fg={theme().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed notifications ({props.logs.length})</text>
+        <box flexGrow={1} />
+        <text fg={theme().textMuted}>esc</text>
+      </box>
       <Show when={props.logs.length > 0} fallback={<text fg={theme().textMuted}>No notifications sent yet</text>}>
-        <box flexDirection="column" width="100%">
-          {props.logs.map((entry) => (
-            <box flexDirection="column" width="100%">
-              <box flexDirection="row" width="100%">
-                <text fg={entry.actionable ? theme().warning : theme().textMuted}>{entry.actionable ? "▶" : "·"} </text>
-                <text fg={theme().text}>{entry.icon} {new Date(entry.at).toLocaleString()} {entry.summary}</text>
+        <scrollbox maxHeight={maxListRows} scrollY stickyScroll stickyStart="bottom">
+          <box flexDirection="column" width="100%">
+            {props.logs.map((entry) => (
+              <box flexDirection="column" width="100%">
+                <box flexDirection="row" width="100%" minWidth={0}>
+                  <text fg={entry.actionable ? theme().warning : theme().textMuted}>{entry.actionable ? "▶" : "·"}</text>
+                  <text fg={theme().text} flexShrink={0} minWidth={0}> {entry.icon}</text>
+                  <text fg={theme().text} flexGrow={1} flexShrink={1} minWidth={0} truncate> {new Date(entry.at).toLocaleString()} {entry.summary}</text>
+                </box>
+                <Show when={entry.body}>
+                  <text fg={theme().textMuted}>  {entry.body}</text>
+                </Show>
               </box>
-              <Show when={entry.body}>
-                <text fg={theme().textMuted}>  {entry.body}</text>
-              </Show>
-            </box>
-          ))}
-        </box>
+            ))}
+          </box>
+        </scrollbox>
       </Show>
     </box>
   )
