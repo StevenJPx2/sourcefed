@@ -30,6 +30,10 @@ async function transformFile(src, out) {
     resolvePath: (specifier) => {
       if (specifier === "solid-js" || specifier.startsWith("solid-js/")) return RUNTIME_MODULE + encodeURIComponent(specifier)
       if (specifier === "@opentui/solid" || specifier.startsWith("@opentui/solid/")) return RUNTIME_MODULE + encodeURIComponent(specifier)
+      // Keep the daemon client external and pointed at the published subpath, so the
+      // TUI bundle imports connectDaemonClient at runtime instead of inlining the whole
+      // daemon (registry + every provider) into the plugin.
+      if (specifier === "@sourcefed/daemon") return "@fdcn/sourcefed/daemon"
       return specifier
     },
   })

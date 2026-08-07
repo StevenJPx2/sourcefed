@@ -1,4 +1,5 @@
 import type { MonitorEvent } from "@sourcefed/core"
+import { htmlToMarkdown } from "../../utils/html-to-markdown.ts"
 import { fallbackGithubEvent } from "./fallback-github-event.ts"
 import { githubEventHandlers } from "./github-event-handlers.ts"
 import { githubPullRequestNumber } from "./pull-request-number.ts"
@@ -22,7 +23,7 @@ export function parseGithubWebhook(payload: any, eventName: string, _deliveryId:
     id: shape.id,
     at: payload.repository?.updated_at ?? new Date().toISOString(),
     summary: shape.summary,
-    body: body || undefined,
+    body: htmlToMarkdown(body || undefined),
     actionable: shape.actionable,
     terminal: shape.kind === "merged" || shape.kind === "closed",
   }
