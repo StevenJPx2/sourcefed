@@ -1,6 +1,6 @@
 {
   "name": "sourcefed",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Live Jira, GitHub, and Slack monitoring for agent hosts.",
   "private": true,
   "repository": {
