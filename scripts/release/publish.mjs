@@ -43,7 +43,7 @@ run("npm", ["run", "integration"], ROOT)
 // 4. pack the exact artifact
 rmSync(REL, { recursive: true, force: true })
 mkdirSync(REL, { recursive: true })
-run("npm", ["pack", "packages/sourcefed", "--pack-destination", REL], ROOT)
+run("npm", ["pack", "--pack-destination", REL], path.join(ROOT, "packages/sourcefed"))
 const sha = createHash("sha256").update(readFileSync(TARBALL)).digest("hex")
 
 // 5. aggregate-only canary
