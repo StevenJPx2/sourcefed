@@ -12,13 +12,16 @@ npm run release:publish  # gates, pack, aggregate-only canary, publish the exact
 npm run release:pins     # opt-in: dotfiles/pi/Homebrew pins, run after a successful publish
 ```
 
-`changelogen --release --push` owns versioning: it derives the next version from commit
-types, writes `CHANGELOG.md`, commits, and tags `v<version>`; the Release workflow creates
-the GitHub release from that tag. `scripts/release/publish.mjs` reads the bumped version
-from the root manifest, syncs the aggregate package and README pins, runs the gates, packs
-and canaries the exact tarball, publishes it with a terminal 2FA prompt, and canaries the
-registry copy. Deployment pins live in `scripts/release/pins.mjs` — a separate opt-in step,
-not part of the release.
+`changelogen --release --push` owns versioning off the root `package.json`: it derives the
+next version from commit types, writes `CHANGELOG.md`, commits, tags `v<version>`, and
+creates the GitHub release with the generated changelog. `scripts/release/publish.mjs` reads
+that version from the root manifest, syncs the aggregate package and README pins, runs the
+gates, packs and canaries the exact tarball, publishes it with a terminal 2FA prompt, and
+canaries the registry copy. Deployment pins live in `scripts/release/pins.mjs` — a separate
+opt-in step, not part of the release.
+
+The root `package.json` version is the single source of truth; the aggregate
+`packages/sourcefed` version is synced from it by `release:publish`, never edited by hand.
 
 ## Artifact Flow
 
