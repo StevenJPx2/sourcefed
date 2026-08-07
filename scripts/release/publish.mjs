@@ -28,9 +28,11 @@ if (status) fail(`working tree is not clean:\n${status}`)
 const branch = execFileSync("git", ["branch", "--show-current"], { cwd: ROOT, encoding: "utf8" }).trim()
 if (branch !== "main") fail(`release from main, not ${branch}`)
 
-// 2. sync the aggregate manifest and README pins to the released version
+// 2. refuse to re-publish a version the registry already serves (resumable otherwise)
+if (registryVersion(VERSION) === VERSION) fail(`@fdcn/sourcefed ${VERSION} is already on the registry — bump with \`npm run release\` first`)
+
+// sync the aggregate manifest and README pins to the released version
 const manifest = JSON.parse(readFileSync(AGG_PKG, "utf8"))
-if (manifest.version === VERSION) fail(`@fdcn/sourcefed ${VERSION} is already published — bump with \`npm run release\` first`)
 writeFileSync(AGG_PKG, JSON.stringify({ ...manifest, version: VERSION }, null, 2) + "\n")
 for (const readme of READMES) {
   writeFileSync(readme, readFileSync(readme, "utf8").replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${VERSION}`))
@@ -55,10 +57,12 @@ if (!skills.includes("core:")) fail("canary: skills list failed")
 if (existsSync(path.join(consumer, "node_modules/@sourcefed"))) fail("canary: private @sourcefed packages leaked into the consumer")
 rmSync(consumer, { recursive: true, force: true })
 
-// 6. commit + push the sync
+// 6. commit + push the sync (skip when nothing changed on a resume)
 run("git", ["add", "packages/sourcefed/package.json", ...READMES], ROOT)
-run("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${VERSION}`], ROOT)
-run("git", ["push", "origin", "main"], ROOT)
+if (execFileSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8" }).trim()) {
+  run("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${VERSION}`], ROOT)
+  run("git", ["push", "origin", "main"], ROOT)
+}
 
 // 7. publish the exact tarball (OTP prompts on the terminal unless --otp is given)
 run("npm", ["publish", TARBALL, "--access", "public", ...(OTP ? ["--otp", OTP] : [])], ROOT)
@@ -85,6 +89,14 @@ function writeManifest(version, sha256) {
     at: new Date().toISOString(),
   }
   writeFileSync(path.join(REL, "manifest.json"), JSON.stringify(record, null, 2) + "\n")
+}
+
+function registryVersion(version) {
+  try {
+    return execFileSync("npm", ["view", `@fdcn/sourcefed@${version}`, "version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()
+  } catch {
+    return ""
+  }
 }
 
 function waitForRegistry(version) {
