@@ -151,11 +151,16 @@ export class SourcefedDaemon {
       this.listeners.set(key, listeners)
     }
     listeners.add(onEvents)
+    this.emit(target)
     return () => {
       listeners.delete(onEvents)
+      const receivedByListener = this.received.get(key)
+      const released = receivedByListener?.delete(onEvents) ?? false
       if (listeners.size === 0) {
         this.listeners.delete(key)
         this.received.delete(key)
+      } else if (released) {
+        this.emit(target)
       }
     }
   }
@@ -195,23 +200,29 @@ export class SourcefedDaemon {
       receivedByListener = new Map()
       this.received.set(key, receivedByListener)
     }
-    const listenerResults = [...listeners].map(async (listener) => {
+    const claimed = new Set<string>()
+    for (const received of receivedByListener.values()) {
+      for (const id of received) claimed.add(id)
+    }
+    const fresh = queued.filter((event) => !claimed.has(event.id))
+    if (fresh.length === 0) return
+
+    for (const listener of [...listeners]) {
       let received = receivedByListener.get(listener)
       if (!received) {
         received = new Set()
         receivedByListener.set(listener, received)
       }
-      const fresh = queued.filter((event) => !received.has(event.id))
-      if (fresh.length === 0) return
       for (const event of fresh) received.add(event.id)
       try {
         await listener(fresh)
+        return
       } catch (error) {
         console.error(`[sourcefed] event delivery failed: ${error instanceof Error ? error.message : String(error)}`)
         for (const event of fresh) received.delete(event.id)
+        if (received.size === 0) receivedByListener.delete(listener)
       }
-    })
-    await Promise.all(listenerResults)
+    }
   }
 }
 

@@ -71,20 +71,12 @@ export class OpenCodeBridge {
   }
 
   private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
-    const delivered: QueuedMonitorEvent[] = []
     for (const queued of events) {
       const body = {
         ...(queued.event.actionable ? {} : { noReply: true }),
         parts: [{ type: "text" as const, text: eventText(queued.event) }],
       }
       await this.opencode.session.prompt({ path: { id: queued.target.id }, body })
-      delivered.push(queued)
-    }
-    if (delivered.length > 0 && this.daemon) {
-      await this.daemon.request("monitor.ack", {
-        target: { kind: "opencode-session", id: delivered[0].target.id },
-        eventIDs: delivered.map((queued) => queued.id),
-      })
     }
   }
 

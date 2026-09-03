@@ -101,4 +101,31 @@ describe("SourcefedDaemon", () => {
     assert.deepEqual(received, [`${record.id}:comment:1`, `${record.id}:comment:2`])
     await daemon.stop()
   })
+
+  test("delivers an event once when three clients subscribe to the same target", async () => {
+    const daemon = createDaemon()
+    const created = await daemon.createMonitor(target, { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742" })
+    if (!created.ok || !created.monitor) throw new Error("monitor creation failed")
+    const record = await daemon.service.get(created.monitor.id)
+    if (!record) throw new Error("monitor record not found")
+
+    const received = [0, 0, 0]
+    received.forEach((_, index) => daemon.subscribe(target, (events) => { received[index] += events.length }))
+
+    await daemon.runtime.context.sink.deliver({
+      monitor: record,
+      event: {
+        source: record.source,
+        kind: "comment",
+        id: "comment:1",
+        at: "2026-08-04T12:00:00.000Z",
+        summary: "Jira ADEPT-43742 comment",
+        actionable: true,
+      },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    assert.equal(received.reduce((total, count) => total + count, 0), 1)
+    await daemon.stop()
+  })
 })

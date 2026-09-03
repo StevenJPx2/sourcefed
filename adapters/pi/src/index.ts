@@ -154,7 +154,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     const target = { kind: "pi-session" as const, id: ctx.sessionManager.getSessionId() }
     if (client && !listeners.has(target.id)) {
       const listener = await client.subscribe(target, async (events) => {
-        await routeEvents(pi, events, target, client!)
+        await routeEvents(pi, events)
       })
       listeners.set(target.id, listener)
     }
@@ -185,8 +185,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   }
 }
 
-async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[], target: PiTarget, daemon: DaemonClient): Promise<void> {
-  const delivered: QueuedMonitorEvent[] = []
+async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[]): Promise<void> {
   for (const queued of events) {
     await pi.sendMessage({
       customType: "sourcefed-monitor",
@@ -194,13 +193,6 @@ async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[], targe
       display: true,
       details: { actionable: queued.event.actionable, eventID: queued.id },
     }, { triggerTurn: queued.event.actionable, deliverAs: "steer" })
-    delivered.push(queued)
-  }
-  if (delivered.length > 0) {
-    await daemon.request("monitor.ack", {
-      target,
-      eventIDs: delivered.map((queued) => queued.id),
-    })
   }
 }
 

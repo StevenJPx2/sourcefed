@@ -58,80 +58,51 @@ class HttpDaemonClient implements DaemonClient {
     const subscribed = new Promise<void>((resolve) => {
       markSubscribed = () => resolve()
     })
-    let drainComplete = false
-    let draining = false
-    let redrainRequested = false
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
-    let markDrained!: () => void
-    const drained = new Promise<void>((resolve) => {
-      markDrained = resolve
-    })
-    let buffered: QueuedMonitorEvent[][] = []
     let delivering: Promise<void> = Promise.resolve()
+    let activeStream: AbortController | undefined
+    let retryStream = false
 
     const deliver = (events: QueuedMonitorEvent[]): Promise<void> => {
       if (!callbacks?.has(onEvents) || events.length === 0) return Promise.resolve()
-      delivering = delivering.then(() => deliverWithRetry(events, 0)).catch((error) => {
+      delivering = delivering.then(async () => {
+        try {
+          await onEvents(events)
+        } catch (error) {
+          console.error(`[sourcefed] event delivery failed: ${error instanceof Error ? error.message : String(error)}`)
+          retryStream = true
+          activeStream?.abort()
+          return
+        }
+        await acknowledge(events)
+      }).catch((error) => {
         console.error(`[sourcefed] event delivery failed: ${error instanceof Error ? error.message : String(error)}`)
       })
       return delivering
     }
 
-    const deliverWithRetry = async (events: QueuedMonitorEvent[], attempt: number): Promise<void> => {
-      try {
-        await onEvents(events)
-      } catch (error) {
-        if (attempt >= 2) {
-          console.error(`[sourcefed] event delivery failed after retries; re-draining queue: ${error instanceof Error ? error.message : String(error)}`)
-          redrainRequested = true
-          void performDrain()
+    const acknowledge = async (events: QueuedMonitorEvent[]): Promise<void> => {
+      let attempt = 0
+      while (!controller.signal.aborted && callbacks?.has(onEvents)) {
+        try {
+          await this.request("monitor.ack", { target, eventIDs: events.map((event) => event.id) })
           return
-        }
-        await sleep(250 * (attempt + 1))
-        await deliverWithRetry(events, attempt + 1)
-      }
-    }
-
-    const performDrain = async (): Promise<void> => {
-      if (draining) {
-        redrainRequested = true
-        return
-      }
-      draining = true
-      try {
-        let passes = 0
-        do {
-          redrainRequested = false
-          passes += 1
-          try {
-            const drainResult = (await this.request("monitor.events", { target })) as { events?: QueuedMonitorEvent[] }
-            drainComplete = true
-            const drainedIds = new Set((drainResult.events ?? []).map((event) => event.id))
-            if (drainResult.events && drainResult.events.length > 0) await deliver(drainResult.events)
-            for (const batch of buffered) {
-              const fresh = batch.filter((event) => !drainedIds.has(event.id))
-              if (fresh.length > 0) await deliver(fresh)
-            }
-            buffered = []
-            markDrained()
-          } catch (error) {
-            console.error(`[sourcefed] event drain failed: ${error instanceof Error ? error.message : String(error)}`)
-            redrainRequested = true
+        } catch (error) {
+          attempt += 1
+          if (attempt === 3) {
+            console.error(`[sourcefed] event acknowledgement still failing; retrying without repeating delivery: ${error instanceof Error ? error.message : String(error)}`)
           }
-        } while (redrainRequested && passes < 3)
-        // The drain is a catch-up nicety, not the subscription: if every attempt
-        // fails (e.g. transient network error or a daemon restart), still resolve
-        // so the live stream stays established — unacked events persist in the
-        // daemon queue and are picked up by the next reconnect/redrain.
-        if (redrainRequested) markDrained()
-      } finally {
-        draining = false
+          await sleep(Math.min(250 * 2 ** (attempt - 1), 4_000))
+        }
       }
     }
 
     const runStream = async (): Promise<void> => {
+      const streamController = new AbortController()
+      const closeStream = () => streamController.abort()
+      activeStream = streamController
+      controller.signal.addEventListener("abort", closeStream, { once: true })
       try {
-        const response = await fetch(url, { signal: controller.signal, headers: this.headers() })
+        const response = await fetch(url, { signal: streamController.signal, headers: this.headers() })
         if (!response.ok || !response.body) throw new Error(`event stream failed: ${response.status}`)
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -147,21 +118,14 @@ class HttpDaemonClient implements DaemonClient {
               if (!line.startsWith("data: ")) continue
               const frame = parseDaemonFrame(line.slice(6))
               if (!frame || !("type" in frame)) continue
-              if (frame.type === "subscribed") {
-                markSubscribed()
-                drainComplete = false
-                void performDrain()
-              }
-              if (frame.type === "event") {
-                if (drainComplete) void deliver(frame.events)
-                else buffered.push(frame.events)
-              }
+              if (frame.type === "subscribed") markSubscribed()
+              if (frame.type === "event") void deliver(frame.events)
             }
           }
         }
         consecutiveFailures = 0
       } catch (error) {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && !retryStream) {
           consecutiveFailures += 1
           // Log only the first failure of a burst; the reconnect loop is expected
           // to recover, and logging every 500ms retry floods host UIs.
@@ -169,6 +133,10 @@ class HttpDaemonClient implements DaemonClient {
             console.error(`[sourcefed] event stream ended: ${error instanceof Error ? error.message : String(error)}`)
           }
         }
+      } finally {
+        controller.signal.removeEventListener("abort", closeStream)
+        if (activeStream === streamController) activeStream = undefined
+        retryStream = false
       }
     }
 
@@ -184,9 +152,7 @@ class HttpDaemonClient implements DaemonClient {
 
     try {
       await withTimeout(subscribed, 15_000, `sourcefed event stream did not subscribe at ${url}`)
-      await withTimeout(drained, 15_000, "sourcefed initial event drain timed out")
     } catch (error) {
-      if (retryTimer) clearTimeout(retryTimer)
       const callbacks = this.listeners.get(key)
       callbacks?.delete(onEvents)
       if (callbacks && callbacks.size === 0) this.listeners.delete(key)
@@ -197,7 +163,6 @@ class HttpDaemonClient implements DaemonClient {
 
     return {
       close: async () => {
-        if (retryTimer) clearTimeout(retryTimer)
         const callbacks = this.listeners.get(key)
         callbacks?.delete(onEvents)
         if (callbacks && callbacks.size === 0) this.listeners.delete(key)
