@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v0.2.6
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.5...v0.2.6)
+
+### 🩹 Fixes
+
+- **release:** Clean dist before rebuild and ignore .release output ([35046f0](https://github.com/StevenJPx2/sourcefed/commit/35046f0))
+- **opencode:** Keep the session's current model when delivering events ([c216106](https://github.com/StevenJPx2/sourcefed/commit/c216106))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.5 ([695bba7](https://github.com/StevenJPx2/sourcefed/commit/695bba7))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.5
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.4...v0.2.5)
