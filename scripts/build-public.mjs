@@ -1,5 +1,5 @@
 import { build } from "esbuild"
-import { chmodSync, copyFileSync, cpSync, mkdirSync } from "node:fs"
+import { chmodSync, copyFileSync, cpSync, mkdirSync, rmSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -24,6 +24,7 @@ const EXTERNAL = [
   "typebox",
 ]
 
+rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 
 await build({
