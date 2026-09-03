@@ -1,6 +1,28 @@
 # Changelog
 
 
+## v0.2.5
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.4...v0.2.5)
+
+### 🩹 Fixes
+
+- **release:** Pack from the package cwd, not a root path arg ([2ee8cd2](https://github.com/StevenJPx2/sourcefed/commit/2ee8cd2))
+- **release:** Registry-based publish guard, resumable sync commit ([2b85b28](https://github.com/StevenJPx2/sourcefed/commit/2b85b28))
+- **daemon:** Deliver each monitor event once across concurrent subscribers ([7d62292](https://github.com/StevenJPx2/sourcefed/commit/7d62292))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.4 ([fe3db37](https://github.com/StevenJPx2/sourcefed/commit/fe3db37))
+
+### 🤖 CI
+
+- Changelogen creates the GitHub release; drop redundant release.yml ([78c9805](https://github.com/StevenJPx2/sourcefed/commit/78c9805))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.4
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.3...v0.2.4)
