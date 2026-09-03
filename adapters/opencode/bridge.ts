@@ -72,12 +72,34 @@ export class OpenCodeBridge {
 
   private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
     for (const queued of events) {
+      const model = await this.currentModel(queued.target.id)
       const body = {
         ...(queued.event.actionable ? {} : { noReply: true }),
+        ...(model ? { model } : {}),
         parts: [{ type: "text" as const, text: eventText(queued.event) }],
       }
       await this.opencode.session.prompt({ path: { id: queued.target.id }, body })
     }
+  }
+
+  // A prompt without an explicit model makes OpenCode fall back to the default
+  // model, silently switching the session off whatever it was using. Reuse the
+  // model from the session's last assistant turn so a notification never
+  // changes the active model.
+  private async currentModel(sessionID: string): Promise<{ providerID: string; modelID: string } | undefined> {
+    try {
+      const result = await this.opencode.session.messages({ path: { id: sessionID } })
+      const messages = result.data ?? []
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        const info = messages[i].info
+        if (info.role === "assistant" && info.providerID && info.modelID) {
+          return { providerID: info.providerID, modelID: info.modelID }
+        }
+      }
+    } catch {
+      // No message history (or the read failed) — fall back to the default.
+    }
+    return undefined
   }
 
   private target(sessionID: string): Target {
