@@ -20,20 +20,30 @@ describe("Jira poll event helpers", () => {
     assert.equal(events[0].body, "new")
   })
 
-  test("tracks description and status history", () => {
+  test("tracks description changes", () => {
     const cursor = emptyJiraCursor()
     const events: JiraEvent[] = []
     appendJiraDescription("PROJ-1", cursor, events, { content: [{ text: "updated" }] })
     appendJiraDescription("PROJ-1", cursor, events, { content: [{ text: "changed" }] })
-    cursor.changelogCount = 1
-    appendJiraChangelog("PROJ-1", cursor, events, [{
-      items: [],
-    }, {
-      created: "2026-08-04T12:00:00.000Z",
-      items: [{ field: "status", fromString: "In Progress", toString: "Done" }],
-    }])
-    assert.deepEqual(events.map((event) => event.kind), ["description", "changelog"])
+    assert.deepEqual(events.map((event) => event.kind), ["description"])
     assert.equal(jiraChangeValue({ toString: "Done" }, "to"), "Done")
+  })
+
+  test("emits a new status change, not the older label change (Jira returns histories newest-first)", () => {
+    const cursor = emptyJiraCursor()
+    const events: JiraEvent[] = []
+    const labelHistory = { id: "20", created: "2026-09-02T12:29:48.000Z", items: [{ field: "labels", fromString: "", toString: "triage" }] }
+    // First poll primes existing history without emitting.
+    appendJiraChangelog("PROJ-1", cursor, events, [labelHistory])
+    assert.equal(events.length, 0)
+    // A status transition happens; Jira prepends it (newest-first).
+    appendJiraChangelog("PROJ-1", cursor, events, [
+      { id: "31", created: "2026-09-08T06:08:22.000Z", items: [{ field: "status", fromString: "In Progress", toString: "Done" }] },
+      labelHistory,
+    ])
+    assert.equal(events.length, 1)
+    assert.equal(events[0].kind, "changelog")
+    assert.match(events[0].summary, /status: In Progress → Done/)
   })
 
   test("walks ADF text nodes", () => {

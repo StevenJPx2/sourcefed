@@ -8,5 +8,5 @@ export const JiraSourceSchema = v.object({
 export const JiraCursorSchema = v.object({
   commentIds: v.array(v.number()),
   descriptionVersion: v.optional(v.string()),
-  changelogCount: v.number(),
+  changelogIds: v.array(v.string()),
 })
