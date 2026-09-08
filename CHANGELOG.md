@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.2.7
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.6...v0.2.7)
+
+### 🩹 Fixes
+
+- **jira:** Track changelog by history id so state changes report correctly ([cf485fd](https://github.com/StevenJPx2/sourcefed/commit/cf485fd))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.6 ([e4cc297](https://github.com/StevenJPx2/sourcefed/commit/e4cc297))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.6
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.5...v0.2.6)
