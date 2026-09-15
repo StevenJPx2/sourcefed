@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.2.8
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.7...v0.2.8)
+
+### 🩹 Fixes
+
+- **pi:** Prevent stale-ctx crash in status refresh timer ([9f80816](https://github.com/StevenJPx2/sourcefed/commit/9f80816))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.7 ([c73389c](https://github.com/StevenJPx2/sourcefed/commit/c73389c))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.7
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.6...v0.2.7)
