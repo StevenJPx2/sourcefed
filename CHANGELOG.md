@@ -1,6 +1,26 @@
 # Changelog
 
 
+## v0.2.9
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.8...v0.2.9)
+
+### 🚀 Enhancements
+
+- **slack:** Monitor whole DM conversations ([bd906af](https://github.com/StevenJPx2/sourcefed/commit/bd906af))
+
+### 🩹 Fixes
+
+- **opencode:** Show monitor names in sidebar ([fadcf69](https://github.com/StevenJPx2/sourcefed/commit/fadcf69))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.8 ([389edca](https://github.com/StevenJPx2/sourcefed/commit/389edca))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.8
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.7...v0.2.8)
