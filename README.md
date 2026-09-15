@@ -50,18 +50,18 @@ Manually, OpenCode takes the package in both plugin lists:
 
 ```json
 // opencode.json
-{ "plugin": ["@fdcn/sourcefed@0.2.7"] }
+{ "plugin": ["@fdcn/sourcefed@0.2.8"] }
 ```
 
 ```json
 // tui.json
-{ "plugin": ["@fdcn/sourcefed@0.2.7"] }
+{ "plugin": ["@fdcn/sourcefed@0.2.8"] }
 ```
 
 Pi:
 
 ```sh
-pi install npm:@fdcn/sourcefed@0.2.7
+pi install npm:@fdcn/sourcefed@0.2.8
 ```
 
 Restart the host after installing. OpenCode resolves the server entrypoint from
