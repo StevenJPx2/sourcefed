@@ -52,7 +52,7 @@ export function MonitorRows(props: { monitors: () => MonitorView[]; theme: TuiTh
         {visible().map((monitor) => (
           <box flexDirection="row" width="100%">
             <text fg={monitorTone(monitor, props.theme)}>{monitor.icon}</text>
-            <text fg={props.theme.textMuted}>{monitor.detail}</text>
+            <text fg={props.theme.textMuted}> {monitor.name}</text>
           </box>
         ))}
       </Show>

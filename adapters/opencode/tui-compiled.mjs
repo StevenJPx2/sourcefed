@@ -102,13 +102,14 @@ function MonitorRows(props) {
       },
       get children() {
         return visible().map((monitor) => (() => {
-          var _el$11 = _$createElement("box"), _el$12 = _$createElement("text"), _el$13 = _$createElement("text");
+          var _el$11 = _$createElement("box"), _el$12 = _$createElement("text"), _el$13 = _$createElement("text"), _el$14 = _$createTextNode(` `);
           _$insertNode(_el$11, _el$12);
           _$insertNode(_el$11, _el$13);
           _$setProp(_el$11, "flexDirection", "row");
           _$setProp(_el$11, "width", "100%");
           _$insert(_el$12, () => monitor.icon);
-          _$insert(_el$13, () => monitor.detail);
+          _$insertNode(_el$13, _el$14);
+          _$insert(_el$13, () => monitor.name, null);
           _$effect((_p$) => {
             var _v$3 = monitorTone(monitor, props.theme), _v$4 = props.theme.textMuted;
             _v$3 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$3, _p$.e));
