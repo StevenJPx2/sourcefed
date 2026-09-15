@@ -26,6 +26,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   let statusCtx: ExtensionContext | undefined
 
   pi.on("session_start", async (_event, ctx) => {
+    if (statusTimer) clearInterval(statusTimer)
     statusCtx = ctx
     await ensureTarget(ctx)
     void refreshStatus()
@@ -117,6 +118,18 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   async function refreshStatus(): Promise<void> {
     const ctx = statusCtx
     if (!ctx) return
+    try {
+      await updateStatus(ctx)
+    } catch {
+      // ctx went stale after a session reload/replacement, or the daemon
+      // hiccuped. Drop this cycle and stop the timer; the next session_start
+      // installs a fresh ctx and timer. Never let it reject an interval tick.
+      if (statusTimer) clearInterval(statusTimer)
+      statusTimer = undefined
+    }
+  }
+
+  async function updateStatus(ctx: ExtensionContext): Promise<void> {
     const result = (await call(ctx, "monitor_list", {})) as { monitors?: MonitorView[] }
     const monitors = Array.isArray(result?.monitors) ? result.monitors : []
     // Only active monitors count; stopped/removed ones drop out entirely.
