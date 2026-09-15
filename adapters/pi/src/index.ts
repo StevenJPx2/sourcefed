@@ -46,7 +46,7 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   pi.registerTool({
     name: "sourcefed_monitor_create",
     label: "Sourcefed monitor create",
-    description: "Create or reuse a Sourcefed monitor for the current Pi session.",
+    description: "Create or reuse a Jira, GitHub PR, Slack thread, or Slack DM monitor for the current Pi session.",
     parameters: Type.Object({
       name: Type.String(),
       sourceType: Type.Unsafe<string>({ type: "string", enum: ["jira", "github", "slack"] }),

@@ -7,24 +7,34 @@ function slackToken(): string | undefined {
 }
 
 export async function fetchSlackThread(channelId: string, threadTs: string): Promise<{ messages: any[]; users: any[] } | undefined> {
+  return fetchSlackMessages("conversations.replies", { channel: channelId, ts: threadTs, inclusive: "false" })
+}
+
+export async function fetchSlackDm(channelId: string): Promise<{ messages: any[]; users: any[] } | undefined> {
+  return fetchSlackMessages("conversations.history", { channel: channelId })
+}
+
+async function fetchSlackMessages(method: string, params: Record<string, string>): Promise<{ messages: any[]; users: any[] } | undefined> {
   const messages: any[] = []
   let cursor = ""
   let received = false
+
   do {
-    const page = await slackApi("conversations.replies", {
-      channel: channelId,
-      ts: threadTs,
+    const page = await slackApi(method, {
+      ...params,
       limit: "1000",
-      inclusive: "false",
       ...(cursor ? { cursor } : {}),
     })
+
     if (!page) break
     received = true
     if (Array.isArray(page.messages)) messages.push(...page.messages)
     cursor = page.response_metadata?.next_cursor ?? ""
     if (messages.length >= 10_000) break
   } while (cursor)
+
   if (!received) return undefined
+
   const users: any[] = []
   let usersCursor = ""
   do {
@@ -39,8 +49,8 @@ export async function fetchSlackThread(channelId: string, threadTs: string): Pro
     }
     usersCursor = page.response_metadata?.next_cursor ?? ""
   } while (usersCursor)
-  const result: { messages: any[]; users: any[] } = { messages, users }
-  return result
+
+  return { messages, users }
 }
 
 async function slackApi(method: string, params: Record<string, string>): Promise<any | undefined> {

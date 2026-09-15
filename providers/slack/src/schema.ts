@@ -3,7 +3,7 @@ import * as v from "valibot"
 export const SlackSourceSchema = v.object({
   type: v.literal("slack"),
   channelId: v.string(),
-  threadTs: v.string(),
+  threadTs: v.optional(v.string()),
 })
 
 export const SlackCursorSchema = v.object({

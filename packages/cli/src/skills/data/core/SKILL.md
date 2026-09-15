@@ -6,7 +6,7 @@ description: Core sourcefed usage guide. Read this before creating monitors. Cov
 # Sourcefed core
 
 Sourcefed lets you create **monitors** that watch a Jira issue, GitHub PR, or
-Slack thread and route NEW events into the session you're currently working in,
+Slack thread or direct-message conversation and route NEW events into the session you're currently working in,
 so you can react to them as they happen.
 
 Every monitor is detect-only: it routes events into the session and never
@@ -20,13 +20,15 @@ affect that session's monitors.
 - **Jira issue**: `monitor_create({ name: "PROJ-12345", sourceType: "jira", issueKey: "PROJ-12345" })`
 - **GitHub PR**: `monitor_create({ name: "PR #42", sourceType: "github", repo: "owner/repo", prNumber: 42 })`
 - **Slack thread**: `monitor_create({ name: "thread", sourceType: "slack", threadUrl: "<thread-url>" })`
+- **Whole Slack DM**: `monitor_create({ name: "DM with Alex", sourceType: "slack", channelId: "D0123456789" })`
 
 You will be notified of:
 
 - **Jira**: new comments, description edits, and summary/status/assignee/priority/label changes.
 - **GitHub**: new reviews (including bot reviews), PR and line-level comments,
   CI failures, merge conflicts, and the PR being merged or closed.
-- **Slack**: new replies in the thread. Slack monitors are always detect-only
+- **Slack thread**: new replies in the thread.
+- **Slack DM**: new top-level messages in the DM. Slack monitors are always detect-only
   and never reply.
 
 GitHub and Slack use webhook delivery when configured and fall back to polling

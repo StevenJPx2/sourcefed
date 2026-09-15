@@ -14,15 +14,21 @@ export class SlackMonitor extends Monitor<SlackSourceRecord> {
     super({ type: "slack", schema: SlackSourceSchema })
   }
 
-  readonly key = (source: SlackSourceRecord): string => `slack:${source.channelId}#${source.threadTs}`
+  readonly key = (source: SlackSourceRecord): string => source.threadTs
+    ? `slack:${source.channelId}#${source.threadTs}`
+    : `slack:${source.channelId}`
   readonly icon = "󰒱"
-  readonly label = (): string => "thread"
+  readonly label = (source: SlackSourceRecord): string => source.threadTs ? "thread" : "DM"
   readonly detail = (source: SlackSourceRecord): string => ` ${source.channelId}`
-  readonly describe = (source: SlackSourceRecord): string => `Slack ${source.channelId} thread ${source.threadTs}`
+  readonly describe = (source: SlackSourceRecord): string => source.threadTs
+    ? `Slack ${source.channelId} thread ${source.threadTs}`
+    : `Slack DM ${source.channelId}`
 
   build(input: MonitorCreateInput): SourceInput {
     if (input.channelId && input.threadTs) return { type: "slack", channelId: input.channelId, threadTs: input.threadTs }
-    if (!input.threadUrl) return { error: "channelId + threadTs or threadUrl is required for a slack monitor" }
+    if (input.channelId?.startsWith("D")) return { type: "slack", channelId: input.channelId }
+    if (input.channelId) return { error: "threadTs is required unless channelId is a Slack DM ID" }
+    if (!input.threadUrl) return { error: "channelId or threadUrl is required for a slack monitor" }
 
     let url: URL
     try {

@@ -140,6 +140,7 @@ A shared HTTP server works for any client that supports remote MCP: start
 sourcefed monitor create --source-type jira --issue-key ADEPT-43742 --name ADEPT-43742
 sourcefed monitor create --source-type github --repo owner/name --pr-number 42 --name pr-42
 sourcefed monitor create --source-type slack --thread-url https://myteam.slack.com/archives/C0123/p1700000000000000
+sourcefed monitor create --source-type slack --channel-id D0123456789 --name "DM with Alex"
 sourcefed monitor list
 sourcefed monitor status --id MONITOR_ID
 sourcefed monitor events
@@ -153,8 +154,9 @@ sourcefed monitor sources
 
 Monitors belong to a target; the CLI defaults to `--target-kind cli` and `--target-id`
 `$SOURCEFED_TARGET_ID` (falling back to the hostname), so list/status/stop only see
-monitors created for that target. Slack accepts `--thread-url` or `--channel-id` +
-`--thread-ts`; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
+monitors created for that target. Slack accepts `--thread-url`, `--channel-id` +
+`--thread-ts`, or a `D…` DM `--channel-id` by itself to watch new top-level DM
+messages; `--poll-interval-sec` (min 15) tunes polling. Set `SOURCEFED_DAEMON_URL`
 when the daemon is not at the default URL.
 
 ### Getting events without MCP

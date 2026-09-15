@@ -3,7 +3,11 @@ import { SlackCursorSchema } from "../../schema.ts"
 import type { SlackCursor, SlackEvent, SlackReadResult } from "../../types"
 import { messageAt, messageTimestamp } from "../../utils"
 
-export function parseSlackReadResult(result: SlackReadResult, cursorRaw: unknown): { events: SlackEvent[]; cursor: SlackCursor } {
+export function parseSlackReadResult(
+  result: SlackReadResult,
+  cursorRaw: unknown,
+  location: "thread" | "DM" = "thread",
+): { events: SlackEvent[]; cursor: SlackCursor } {
   const parsedCursor = v.safeParse(SlackCursorSchema, cursorRaw)
   let previous: Partial<SlackCursor> = {}
   if (parsedCursor.success) previous = parsedCursor.output
@@ -31,7 +35,7 @@ export function parseSlackReadResult(result: SlackReadResult, cursorRaw: unknown
         kind: "message",
         id: `message:${message.ts}`,
         at: messageAt(message.ts),
-        summary: `Slack thread message by ${author}`,
+        summary: `Slack ${location} message by ${author}`,
         body: text,
         actionable: true,
       }

@@ -30,8 +30,8 @@ sourcefed skills path [name]                Print skill directory path
 --issue-key KEY       Jira issue key (jira)
 --repo OWNER/NAME     GitHub repository (github)
 --pr-number N         GitHub PR number (github)
---channel-id ID       Slack channel (slack)
---thread-ts TS        Slack parent message timestamp (slack)
+--channel-id ID       Slack channel or DM ID; a D… ID alone monitors the whole DM
+--thread-ts TS        Slack parent message timestamp; omit for a whole-DM monitor
 --thread-url URL      Slack thread URL (slack)
 --poll-interval-sec N Poll interval in seconds (min 15)
 --target-kind KIND    Target kind for ownership scoping (default: cli)

@@ -32,7 +32,17 @@ describe("Slack monitor source", () => {
     assert.deepEqual(source, { type: "slack", channelId: "D123456", threadTs: "1712345678.901234" })
   })
 
-  test("requires a channel and thread timestamp", () => {
+  test("builds a whole-DM monitor from a DM conversation ID", () => {
+    assert.deepEqual(new SlackMonitor().build({ channelId: "D123456" }), {
+      type: "slack",
+      channelId: "D123456",
+    })
+  })
+
+  test("requires a thread timestamp for non-DM conversations", () => {
+    assert.deepEqual(new SlackMonitor().build({ channelId: "C123456" }), {
+      error: "threadTs is required unless channelId is a Slack DM ID",
+    })
     assert.deepEqual(new SlackMonitor().build({ threadUrl: "https://workspace.slack.com/client" }), {
       error: "threadUrl does not contain a Slack channel and thread timestamp",
     })
@@ -65,8 +75,25 @@ describe("Slack webhook events", () => {
     assert.equal(event?.at, new Date(1712345680.000001 * 1000).toISOString())
   })
 
-  test("ignores a top-level message and non-message events", () => {
-    assert.equal(parseSlackWebhook({ type: "event_callback", event: { type: "message", channel: "D123456", ts: "1712345678.901234" } }, "slack", "Ev1"), undefined)
+  test("accepts top-level DM messages", () => {
+    const event = parseSlackWebhook({
+      type: "event_callback",
+      event: {
+        type: "message",
+        channel: "D123456",
+        channel_type: "im",
+        ts: "1712345678.901234",
+        user: "U123",
+        text: "A direct message",
+      },
+    }, "slack", "Ev1")
+
+    assert.deepEqual(event?.source, { type: "slack", channelId: "D123456" })
+    assert.equal(event?.summary, "Slack DM message by U123")
+  })
+
+  test("ignores top-level channel messages and non-message events", () => {
+    assert.equal(parseSlackWebhook({ type: "event_callback", event: { type: "message", channel: "C123456", ts: "1712345678.901234" } }, "slack", "Ev1"), undefined)
     assert.equal(parseSlackWebhook({ type: "event_callback", event: { type: "reaction_added", item: { channel: "D123456" } } }, "slack", "Ev2"), undefined)
   })
 })
@@ -100,6 +127,19 @@ describe("Slack poll cursor", () => {
       body: "New reply",
       actionable: true,
     })
+  })
+
+  test("labels whole-DM polling events", () => {
+    const initial = parseSlackReadResult({ messages: [{ ts: "1712345678.901234", text: "Existing" }] }, undefined, "DM")
+    const next = parseSlackReadResult({
+      messages: [
+        { ts: "1712345678.901234", text: "Existing" },
+        { ts: "1712345680.000001", user: "U123", text: "New DM" },
+      ],
+      users: [{ id: "U123", real_name: "Test User" }],
+    }, initial.cursor, "DM")
+
+    assert.equal(next.events[0]?.summary, "Slack DM message by Test User")
   })
 
   test("keeps messages after the last webhook event during poll fallback", () => {

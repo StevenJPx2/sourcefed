@@ -81,7 +81,7 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
   server.registerTool(
     "monitor_create",
     {
-      description: "Create or reuse a monitor for a Jira issue, GitHub pull request, or Slack thread.",
+      description: "Create or reuse a monitor for a Jira issue, GitHub pull request, Slack thread, or Slack DM.",
       inputSchema: createSchema,
       annotations: { idempotentHint: true, readOnlyHint: false },
     },
