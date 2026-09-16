@@ -73,6 +73,57 @@ describe("SourcefedDaemon", () => {
     await daemon.stop()
   })
 
+  test("skips and drops events for a disabled monitor when delivering", async () => {
+    const daemon = createDaemon()
+    const created = await daemon.createMonitor(target, { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742" })
+    if (!created.ok || !created.monitor) throw new Error("monitor creation failed")
+    const record = await daemon.service.get(created.monitor.id)
+    if (!record) throw new Error("monitor record not found")
+
+    // Queue an event, then disable the monitor without purging — simulating events
+    // already queued before the monitor was stopped.
+    await daemon.runtime.context.sink.deliver({
+      monitor: record,
+      event: { source: record.source, kind: "comment", id: "comment:1", at: "2026-08-04T12:00:00.000Z", summary: "backfill", actionable: true },
+    })
+    await daemon.service.stop(record.id)
+
+    // A subscriber must not receive the disabled monitor's events; deliver drops them.
+    const received: string[] = []
+    daemon.subscribe(target, (events) => received.push(...events.map((event) => event.id)))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    assert.deepEqual(received, [])
+    assert.equal((await daemon.readEvents(target)).length, 0)
+    await daemon.stop()
+  })
+
+  test("drops a stopped monitor's queued events instead of replaying them", async () => {
+    const daemon = createDaemon()
+    const created = await daemon.createMonitor(target, { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742" })
+    if (!created.ok || !created.monitor) throw new Error("monitor creation failed")
+    const record = await daemon.service.get(created.monitor.id)
+    if (!record) throw new Error("monitor record not found")
+
+    // Queue an event with no subscriber attached, so it stays in the queue.
+    await daemon.runtime.context.sink.deliver({
+      monitor: record,
+      event: { source: record.source, kind: "comment", id: "comment:1", at: "2026-08-04T12:00:00.000Z", summary: "backfill", actionable: true },
+    })
+    assert.equal((await daemon.readEvents(target)).length, 1)
+
+    // Stopping the monitor purges its queued events.
+    const stopped = await daemon.stopMonitor(target, created.monitor.id)
+    assert.equal(stopped.ok, true)
+    assert.equal((await daemon.readEvents(target)).length, 0)
+
+    // A subscriber that connects afterwards receives nothing from the stopped monitor.
+    const received: string[] = []
+    daemon.subscribe(target, (events) => received.push(...events.map((event) => event.id)))
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    assert.deepEqual(received, [])
+    await daemon.stop()
+  })
+
   test("does not redeliver in-flight events before acknowledgement", async () => {
     const daemon = createDaemon()
     const created = await daemon.createMonitor(target, { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742" })

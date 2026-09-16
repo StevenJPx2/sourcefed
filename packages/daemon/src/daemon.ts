@@ -99,6 +99,7 @@ export class SourcefedDaemon {
     if (!monitor) return { ok: false, error: `monitor ${id} was not found for this target` }
     const stopped = await this.service.stop(id)
     if ("error" in stopped) return { ok: false, error: stopped.error }
+    await this.purgeMonitorEvents(monitor.target, id)
     return { ok: true, monitor: monitorView(stopped) }
   }
 
@@ -114,6 +115,7 @@ export class SourcefedDaemon {
     const monitor = await ownedMonitor(this.service, id, target)
     if (!monitor) return { ok: false, error: `monitor ${id} was not found for this target` }
     await this.service.remove(id)
+    await this.purgeMonitorEvents(monitor.target, id)
     return { ok: true, removed: true }
   }
 
@@ -195,6 +197,12 @@ export class SourcefedDaemon {
   private async deliver(key: string, target: MonitorTarget, listeners: Set<(events: QueuedMonitorEvent[]) => void>): Promise<void> {
     const queued = await this.queue.read(target)
     if (queued.length === 0) return
+
+    // A stopped or removed monitor must go silent: drop its still-queued events
+    // instead of replaying them to subscribers.
+    const enabled = new Set((await this.service.list()).filter((monitor) => monitor.enabled).map((monitor) => monitor.id))
+    await this.dropQueued(target, queued.filter((event) => !enabled.has(event.monitorID)).map((event) => event.id))
+
     let receivedByListener = this.received.get(key)
     if (!receivedByListener) {
       receivedByListener = new Map()
@@ -204,7 +212,7 @@ export class SourcefedDaemon {
     for (const received of receivedByListener.values()) {
       for (const id of received) claimed.add(id)
     }
-    const fresh = queued.filter((event) => !claimed.has(event.id))
+    const fresh = queued.filter((event) => enabled.has(event.monitorID) && !claimed.has(event.id))
     if (fresh.length === 0) return
 
     for (const listener of [...listeners]) {
@@ -223,6 +231,22 @@ export class SourcefedDaemon {
         if (received.size === 0) receivedByListener.delete(listener)
       }
     }
+  }
+
+  private async dropQueued(target: MonitorTarget, eventIDs: string[]): Promise<void> {
+    if (eventIDs.length === 0) return
+    await this.queue.acknowledge(target, eventIDs)
+    const receivedByListener = this.received.get(targetKey(target))
+    if (!receivedByListener) return
+    const ids = new Set(eventIDs)
+    for (const received of receivedByListener.values()) {
+      for (const id of ids) received.delete(id)
+    }
+  }
+
+  private async purgeMonitorEvents(target: MonitorTarget, monitorID: string): Promise<void> {
+    const queued = await this.queue.read(target)
+    await this.dropQueued(target, queued.filter((event) => event.monitorID === monitorID).map((event) => event.id))
   }
 }
 
