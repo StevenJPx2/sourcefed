@@ -1,114 +1,117 @@
 /** @jsxImportSource @opentui/solid */
 
-import { createMemo, createSignal, Show } from "solid-js"
-import type { TuiPlugin, TuiPluginApi, TuiThemeCurrent } from "@opencode-ai/plugin/tui"
+import { createMemo, Show } from "solid-js"
+import type { Plugin } from "@opencode/plugin/tui"
 import { connectDaemonClient, defaultDaemonUrl, type DaemonClient, type LogEntryView, type MonitorView } from "@sourcefed/daemon"
-import { Sidebar } from "./sidebar.tsx"
+import { Sidebar, tone, type Tone } from "./sidebar.tsx"
 
-export const sourcefedTui: TuiPlugin = async (api: TuiPluginApi) => {
-  api.slots.register({
-    order: 190,
-    slots: {
-      sidebar_content: (_context, value) => <Sidebar api={api} sessionID={value.session_id} />,
-    },
-  })
-
+export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
   let client: DaemonClient | undefined
 
-  const getSessionID = (): string | undefined => {
-    const currentRoute = api.route.current
-    return "params" in currentRoute && typeof currentRoute.params?.sessionID === "string" ? currentRoute.params.sessionID : undefined
-  }
-
-  const getClient = async (): Promise<DaemonClient | undefined> => {
-    if (client) return client
-    client = await connectDaemonClient({
-      name: "sourcefed-opencode-tui",
-      url: process.env.SOURCEFED_DAEMON_URL ?? defaultDaemonUrl(),
-    })
+  const getClient = async (): Promise<DaemonClient> => {
+    if (!client) {
+      client = await connectDaemonClient({
+        name: "sourcefed-opencode-tui",
+        url: process.env.SOURCEFED_DAEMON_URL ?? defaultDaemonUrl(),
+      })
+    }
     return client
   }
 
-  const unregister = api.command?.register(() => [
-    {
-      value: "sourcefed",
-      title: "Sourcefed monitors",
-      description: "Show monitors for the current OpenCode session",
-      slash: { name: "sourcefed" },
-      onSelect: async (dialog) => {
-        const sessionID = getSessionID()
-        if (!sessionID) {
-          api.ui.toast({ variant: "warning", message: "No active OpenCode session" })
-          return
-        }
-        try {
-          const daemon = await getClient()
-          if (!daemon) throw new Error("no daemon client")
-          const result = (await daemon.request("monitor.list", { target: { kind: "opencode-session", id: sessionID } })) as { monitors?: MonitorView[] }
-          const monitors = result?.monitors ?? []
-          api.ui.dialog.replace(() => <MonitorDialog api={api} monitors={monitors} />)
-          api.ui.dialog.setSize("large")
-        } catch (error) {
-          api.ui.toast({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
-        }
-      },
-    },
-    {
-      value: "sourcefed-logs",
-      title: "Sourcefed logs",
-      description: "Show recent Sourcefed notifications for the current OpenCode session",
-      slash: { name: "sourcefed-logs" },
-      onSelect: async (dialog) => {
-        const sessionID = getSessionID()
-        if (!sessionID) {
-          api.ui.toast({ variant: "warning", message: "No active OpenCode session" })
-          return
-        }
-        try {
-          const daemon = await getClient()
-          if (!daemon) throw new Error("no daemon client")
-          const result = (await daemon.request("monitor.logs", { target: { kind: "opencode-session", id: sessionID } })) as { logs?: LogEntryView[] }
-          const logs = result?.logs ?? []
-          api.ui.dialog.replace(() => <LogsDialog api={api} logs={logs} />)
-          api.ui.dialog.setSize("large")
-        } catch (error) {
-          api.ui.toast({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
-        }
-      },
-    },
-  ])
+  const currentSessionID = (): string | undefined => {
+    const route = ctx.ui.router.current()
+    return route.type === "session" ? route.sessionID : undefined
+  }
 
-  void unregister
+  const disposeSlot = ctx.ui.slot({
+    append: "sidebar.content",
+    render: ({ sessionID }) => <Sidebar ctx={ctx} sessionID={sessionID} />,
+  })
+
+  ctx.keymap.layer(() => ({
+    mode: "global",
+    commands: [
+      {
+        id: "sourcefed",
+        title: "Sourcefed monitors",
+        description: "Show monitors for the current OpenCode session",
+        slash: { name: "sourcefed" },
+        run: async () => {
+          const id = currentSessionID()
+          if (!id) {
+            ctx.ui.toast.show({ variant: "warning", message: "No active OpenCode session" })
+            return
+          }
+          try {
+            const daemon = await getClient()
+            const result = (await daemon.request("monitor.list", { target: { kind: "opencode-session", id } })) as { monitors?: MonitorView[] }
+            const monitors = result?.monitors ?? []
+            ctx.ui.dialog.set({ size: "large" })
+            ctx.ui.dialog.show(() => <MonitorDialog ctx={ctx} monitors={monitors} />)
+          } catch (error) {
+            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
+          }
+        },
+      },
+      {
+        id: "sourcefed-logs",
+        title: "Sourcefed logs",
+        description: "Show recent Sourcefed notifications for the current OpenCode session",
+        slash: { name: "sourcefed-logs" },
+        run: async () => {
+          const id = currentSessionID()
+          if (!id) {
+            ctx.ui.toast.show({ variant: "warning", message: "No active OpenCode session" })
+            return
+          }
+          try {
+            const daemon = await getClient()
+            const result = (await daemon.request("monitor.logs", { target: { kind: "opencode-session", id } })) as { logs?: LogEntryView[] }
+            const logs = result?.logs ?? []
+            ctx.ui.dialog.set({ size: "large" })
+            ctx.ui.dialog.show(() => <LogsDialog ctx={ctx} logs={logs} />)
+          } catch (error) {
+            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
+          }
+        },
+      },
+    ],
+  }))
+
+  return () => {
+    disposeSlot()
+    void client?.close()
+  }
 }
 
-function MonitorDialog(props: { api: TuiPluginApi; monitors: MonitorView[] }) {
-  const theme = createMemo(() => (props.api as unknown as { theme: { current: TuiThemeCurrent } }).theme.current)
+function MonitorDialog(props: { ctx: Plugin.Context; monitors: MonitorView[] }) {
+  const palette = createMemo(() => tone(props.ctx.theme))
   const active = props.monitors.filter((monitor) => monitor.enabled)
-  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45))
+  const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45))
   return (
     <box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
       <box flexDirection="row" width="100%" minWidth={0}>
-        <text fg={theme().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed monitors ({active.length})</text>
+        <text fg={palette().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed monitors ({active.length})</text>
         <box flexGrow={1} />
-        <text fg={theme().textMuted}>esc</text>
+        <text fg={palette().textMuted}>esc</text>
       </box>
       <Show when={active.length === 0} fallback={
         <scrollbox maxHeight={maxListRows} scrollY>
           <box flexDirection="column" width="100%">
-            {active.map((monitor) => <MonitorCard monitor={monitor} theme={theme()} />)}
+            {active.map((monitor) => <MonitorCard monitor={monitor} tone={palette()} />)}
           </box>
         </scrollbox>
       }>
-        <text fg={theme().textMuted}>No active monitors</text>
+        <text fg={palette().textMuted}>No active monitors</text>
       </Show>
     </box>
   )
 }
 
-function MonitorCard(props: { monitor: MonitorView; theme: TuiThemeCurrent }) {
+function MonitorCard(props: { monitor: MonitorView; tone: Tone }) {
   const monitor = props.monitor
-  const theme = props.theme
-  const status = monitor.unresponsive ? theme.error : monitor.enabled ? theme.success : theme.textMuted
+  const palette = props.tone
+  const status = monitor.unresponsive ? palette.error : monitor.enabled ? palette.success : palette.textMuted
   const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy"
   const rows: Array<[string, string]> = [
     ["Delivery", monitor.delivery],
@@ -122,13 +125,13 @@ function MonitorCard(props: { monitor: MonitorView; theme: TuiThemeCurrent }) {
     <box flexDirection="column" width="100%" minWidth={0} marginBottom={1}>
       <box flexDirection="row" width="100%" minWidth={0}>
         <text fg={status}>●</text>
-        <text fg={theme.text}> {monitor.icon} {monitor.describe}</text>
+        <text fg={palette.text}> {monitor.icon} {monitor.describe}</text>
         <text fg={status} flexGrow={1} flexShrink={1} minWidth={0} truncate> [{statusLabel}]</text>
       </box>
       {rows.map(([label, value]) => (
         <box flexDirection="row" width="100%" minWidth={0}>
-          <text fg={theme.textMuted} flexShrink={0}>{label}: </text>
-          <text fg={theme.text} flexGrow={1} flexShrink={1} minWidth={0} truncate>{value}</text>
+          <text fg={palette.textMuted} flexShrink={0}>{label}: </text>
+          <text fg={palette.text} flexGrow={1} flexShrink={1} minWidth={0} truncate>{value}</text>
         </box>
       ))}
     </box>
@@ -142,28 +145,28 @@ function formatTime(value: string | undefined): string {
   return date.toLocaleString()
 }
 
-function LogsDialog(props: { api: TuiPluginApi; logs: LogEntryView[] }) {
-  const theme = createMemo(() => (props.api as unknown as { theme: { current: TuiThemeCurrent } }).theme.current)
-  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45))
+function LogsDialog(props: { ctx: Plugin.Context; logs: LogEntryView[] }) {
+  const palette = createMemo(() => tone(props.ctx.theme))
+  const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45))
   return (
     <box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
       <box flexDirection="row" width="100%" minWidth={0}>
-        <text fg={theme().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed notifications ({props.logs.length})</text>
+        <text fg={palette().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed notifications ({props.logs.length})</text>
         <box flexGrow={1} />
-        <text fg={theme().textMuted}>esc</text>
+        <text fg={palette().textMuted}>esc</text>
       </box>
-      <Show when={props.logs.length > 0} fallback={<text fg={theme().textMuted}>No notifications sent yet</text>}>
+      <Show when={props.logs.length > 0} fallback={<text fg={palette().textMuted}>No notifications sent yet</text>}>
         <scrollbox maxHeight={maxListRows} scrollY stickyScroll stickyStart="bottom">
           <box flexDirection="column" width="100%">
             {props.logs.map((entry) => (
               <box flexDirection="column" width="100%">
                 <box flexDirection="row" width="100%" minWidth={0}>
-                  <text fg={entry.actionable ? theme().warning : theme().textMuted}>{entry.actionable ? "▶" : "·"}</text>
-                  <text fg={theme().text} flexShrink={0} minWidth={0}> {entry.icon}</text>
-                  <text fg={theme().text} flexGrow={1} flexShrink={1} minWidth={0} truncate> {new Date(entry.at).toLocaleString()} {entry.summary}</text>
+                  <text fg={entry.actionable ? palette().warning : palette().textMuted}>{entry.actionable ? "▶" : "·"}</text>
+                  <text fg={palette().text} flexShrink={0} minWidth={0}> {entry.icon}</text>
+                  <text fg={palette().text} flexGrow={1} flexShrink={1} minWidth={0} truncate> {new Date(entry.at).toLocaleString()} {entry.summary}</text>
                 </box>
                 <Show when={entry.body}>
-                  <text fg={theme().textMuted}>  {entry.body}</text>
+                  <text fg={palette().textMuted}>  {entry.body}</text>
                 </Show>
               </box>
             ))}

@@ -21,10 +21,20 @@ import { setProp as _$setProp } from "opentui:runtime-module:%40opentui%2Fsolid"
 import { createElement as _$createElement } from "opentui:runtime-module:%40opentui%2Fsolid";
 import { Show, createMemo, createSignal, onCleanup } from "opentui:runtime-module:solid-js";
 import { connectDaemonClient, defaultDaemonUrl } from "@fdcn/sourcefed/daemon";
+function tone(theme) {
+  return {
+    text: theme.text.default,
+    textMuted: theme.text.subdued,
+    accent: theme.text.action.primary.default,
+    success: theme.text.feedback.success.default,
+    error: theme.text.feedback.error.default,
+    warning: theme.text.feedback.warning.default
+  };
+}
 var REFRESH_MS = 3e3;
 function Sidebar(props) {
   const [monitors, setMonitors] = createSignal([]);
-  const theme = createMemo(() => props.api.theme.current);
+  const palette = createMemo(() => tone(props.ctx.theme));
   const active = createMemo(() => monitors().filter((monitor) => monitor.enabled));
   const refresh = async () => {
     let client;
@@ -65,13 +75,13 @@ function Sidebar(props) {
     _$insert(_el$5, () => active().length, _el$7);
     _$insert(_el$, _$createComponent(MonitorRows, {
       monitors: active,
-      get theme() {
-        return theme();
+      get tone() {
+        return palette();
       },
       compact: true
     }), null);
     _$effect((_p$) => {
-      var _v$ = theme().accent, _v$2 = theme().textMuted;
+      var _v$ = palette().accent, _v$2 = palette().textMuted;
       _v$ !== _p$.e && (_p$.e = _$setProp(_el$3, "fg", _v$, _p$.e));
       _v$2 !== _p$.t && (_p$.t = _$setProp(_el$5, "fg", _v$2, _p$.t));
       return _p$;
@@ -96,7 +106,7 @@ function MonitorRows(props) {
         return (() => {
           var _el$1 = _$createElement("text");
           _$insertNode(_el$1, _$createTextNode(`No active monitors`));
-          _$effect((_$p) => _$setProp(_el$1, "fg", props.theme.textMuted, _$p));
+          _$effect((_$p) => _$setProp(_el$1, "fg", props.tone.textMuted, _$p));
           return _el$1;
         })();
       },
@@ -111,7 +121,7 @@ function MonitorRows(props) {
           _$insertNode(_el$13, _el$14);
           _$insert(_el$13, () => monitor.name, null);
           _$effect((_p$) => {
-            var _v$3 = monitorTone(monitor, props.theme), _v$4 = props.theme.textMuted;
+            var _v$3 = monitorTone(monitor, props.tone), _v$4 = props.tone.textMuted;
             _v$3 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$3, _p$.e));
             _v$4 !== _p$.t && (_p$.t = _$setProp(_el$13, "fg", _v$4, _p$.t));
             return _p$;
@@ -130,127 +140,134 @@ function MonitorRows(props) {
       get children() {
         var _el$9 = _$createElement("text");
         _$insertNode(_el$9, _$createTextNode(`Open Sourcefed for more`));
-        _$effect((_$p) => _$setProp(_el$9, "fg", props.theme.textMuted, _$p));
+        _$effect((_$p) => _$setProp(_el$9, "fg", props.tone.textMuted, _$p));
         return _el$9;
       }
     }), null);
     return _el$8;
   })();
 }
-function monitorTone(monitor, theme) {
-  if (!monitor.enabled) return theme.textMuted;
-  return theme.success;
+function monitorTone(monitor, tone2) {
+  if (!monitor.enabled) return tone2.textMuted;
+  return tone2.success;
 }
 
 // .tui-build/tui/plugin.mjs
-var sourcefedTui = async (api) => {
-  api.slots.register({
-    order: 190,
-    slots: {
-      sidebar_content: (_context, value) => _$createComponent2(Sidebar, {
-        api,
-        get sessionID() {
-          return value.session_id;
-        }
-      })
-    }
-  });
+var sourcefedTui = (ctx) => {
   let client;
-  const getSessionID = () => {
-    const currentRoute = api.route.current;
-    return "params" in currentRoute && typeof currentRoute.params?.sessionID === "string" ? currentRoute.params.sessionID : void 0;
-  };
   const getClient = async () => {
-    if (client) return client;
-    client = await connectDaemonClient2({
-      name: "sourcefed-opencode-tui",
-      url: process.env.SOURCEFED_DAEMON_URL ?? defaultDaemonUrl2()
-    });
+    if (!client) {
+      client = await connectDaemonClient2({
+        name: "sourcefed-opencode-tui",
+        url: process.env.SOURCEFED_DAEMON_URL ?? defaultDaemonUrl2()
+      });
+    }
     return client;
   };
-  const unregister = api.command?.register(() => [{
-    value: "sourcefed",
-    title: "Sourcefed monitors",
-    description: "Show monitors for the current OpenCode session",
-    slash: {
-      name: "sourcefed"
-    },
-    onSelect: async (dialog) => {
-      const sessionID = getSessionID();
-      if (!sessionID) {
-        api.ui.toast({
-          variant: "warning",
-          message: "No active OpenCode session"
-        });
-        return;
+  const currentSessionID = () => {
+    const route = ctx.ui.router.current();
+    return route.type === "session" ? route.sessionID : void 0;
+  };
+  const disposeSlot = ctx.ui.slot({
+    append: "sidebar.content",
+    render: ({
+      sessionID
+    }) => _$createComponent2(Sidebar, {
+      ctx,
+      sessionID
+    })
+  });
+  ctx.keymap.layer(() => ({
+    mode: "global",
+    commands: [{
+      id: "sourcefed",
+      title: "Sourcefed monitors",
+      description: "Show monitors for the current OpenCode session",
+      slash: {
+        name: "sourcefed"
+      },
+      run: async () => {
+        const id2 = currentSessionID();
+        if (!id2) {
+          ctx.ui.toast.show({
+            variant: "warning",
+            message: "No active OpenCode session"
+          });
+          return;
+        }
+        try {
+          const daemon = await getClient();
+          const result = await daemon.request("monitor.list", {
+            target: {
+              kind: "opencode-session",
+              id: id2
+            }
+          });
+          const monitors = result?.monitors ?? [];
+          ctx.ui.dialog.set({
+            size: "large"
+          });
+          ctx.ui.dialog.show(() => _$createComponent2(MonitorDialog, {
+            ctx,
+            monitors
+          }));
+        } catch (error) {
+          ctx.ui.toast.show({
+            variant: "error",
+            message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
+          });
+        }
       }
-      try {
-        const daemon = await getClient();
-        if (!daemon) throw new Error("no daemon client");
-        const result = await daemon.request("monitor.list", {
-          target: {
-            kind: "opencode-session",
-            id: sessionID
-          }
-        });
-        const monitors = result?.monitors ?? [];
-        api.ui.dialog.replace(() => _$createComponent2(MonitorDialog, {
-          api,
-          monitors
-        }));
-        api.ui.dialog.setSize("large");
-      } catch (error) {
-        api.ui.toast({
-          variant: "error",
-          message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
-        });
+    }, {
+      id: "sourcefed-logs",
+      title: "Sourcefed logs",
+      description: "Show recent Sourcefed notifications for the current OpenCode session",
+      slash: {
+        name: "sourcefed-logs"
+      },
+      run: async () => {
+        const id2 = currentSessionID();
+        if (!id2) {
+          ctx.ui.toast.show({
+            variant: "warning",
+            message: "No active OpenCode session"
+          });
+          return;
+        }
+        try {
+          const daemon = await getClient();
+          const result = await daemon.request("monitor.logs", {
+            target: {
+              kind: "opencode-session",
+              id: id2
+            }
+          });
+          const logs = result?.logs ?? [];
+          ctx.ui.dialog.set({
+            size: "large"
+          });
+          ctx.ui.dialog.show(() => _$createComponent2(LogsDialog, {
+            ctx,
+            logs
+          }));
+        } catch (error) {
+          ctx.ui.toast.show({
+            variant: "error",
+            message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
+          });
+        }
       }
-    }
-  }, {
-    value: "sourcefed-logs",
-    title: "Sourcefed logs",
-    description: "Show recent Sourcefed notifications for the current OpenCode session",
-    slash: {
-      name: "sourcefed-logs"
-    },
-    onSelect: async (dialog) => {
-      const sessionID = getSessionID();
-      if (!sessionID) {
-        api.ui.toast({
-          variant: "warning",
-          message: "No active OpenCode session"
-        });
-        return;
-      }
-      try {
-        const daemon = await getClient();
-        if (!daemon) throw new Error("no daemon client");
-        const result = await daemon.request("monitor.logs", {
-          target: {
-            kind: "opencode-session",
-            id: sessionID
-          }
-        });
-        const logs = result?.logs ?? [];
-        api.ui.dialog.replace(() => _$createComponent2(LogsDialog, {
-          api,
-          logs
-        }));
-        api.ui.dialog.setSize("large");
-      } catch (error) {
-        api.ui.toast({
-          variant: "error",
-          message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
-        });
-      }
-    }
-  }]);
-  void unregister;
+    }]
+  }));
+  return () => {
+    disposeSlot();
+    void client?.close();
+  };
 };
 function MonitorDialog(props) {
-  const theme = createMemo2(() => props.api.theme.current);
+  const palette = createMemo2(() => tone(props.ctx.theme));
   const active = props.monitors.filter((monitor) => monitor.enabled);
-  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45));
+  const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45));
   return (() => {
     var _el$ = _$createElement2("box"), _el$2 = _$createElement2("box"), _el$3 = _$createElement2("text"), _el$4 = _$createTextNode2(`Sourcefed monitors (`), _el$5 = _$createTextNode2(`)`), _el$6 = _$createElement2("box"), _el$7 = _$createElement2("text");
     _$insertNode2(_el$, _el$2);
@@ -284,8 +301,8 @@ function MonitorDialog(props) {
           _$setProp2(_el$10, "width", "100%");
           _$insert2(_el$10, () => active.map((monitor) => _$createComponent2(MonitorCard, {
             monitor,
-            get theme() {
-              return theme();
+            get tone() {
+              return palette();
             }
           })));
           return _el$1;
@@ -294,12 +311,12 @@ function MonitorDialog(props) {
       get children() {
         var _el$9 = _$createElement2("text");
         _$insertNode2(_el$9, _$createTextNode2(`No active monitors`));
-        _$effect2((_$p) => _$setProp2(_el$9, "fg", theme().textMuted, _$p));
+        _$effect2((_$p) => _$setProp2(_el$9, "fg", palette().textMuted, _$p));
         return _el$9;
       }
     }), null);
     _$effect2((_p$) => {
-      var _v$ = theme().text, _v$2 = theme().textMuted;
+      var _v$ = palette().text, _v$2 = palette().textMuted;
       _v$ !== _p$.e && (_p$.e = _$setProp2(_el$3, "fg", _v$, _p$.e));
       _v$2 !== _p$.t && (_p$.t = _$setProp2(_el$7, "fg", _v$2, _p$.t));
       return _p$;
@@ -312,8 +329,8 @@ function MonitorDialog(props) {
 }
 function MonitorCard(props) {
   const monitor = props.monitor;
-  const theme = props.theme;
-  const status = monitor.unresponsive ? theme.error : monitor.enabled ? theme.success : theme.textMuted;
+  const palette = props.tone;
+  const status = monitor.unresponsive ? palette.error : monitor.enabled ? palette.success : palette.textMuted;
   const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy";
   const rows = [["Delivery", monitor.delivery], ["Poll interval", `${monitor.pollIntervalSec}s`], ["Created", formatTime(monitor.createdAt)], ["Updated", formatTime(monitor.updatedAt)], ["Last poll", formatTime(monitor.lastPolledAt)], ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)]];
   return (() => {
@@ -359,7 +376,7 @@ function MonitorCard(props) {
       _$setProp2(_el$24, "truncate", true);
       _$insert2(_el$24, value);
       _$effect2((_p$) => {
-        var _v$3 = theme.textMuted, _v$4 = theme.text;
+        var _v$3 = palette.textMuted, _v$4 = palette.text;
         _v$3 !== _p$.e && (_p$.e = _$setProp2(_el$22, "fg", _v$3, _p$.e));
         _v$4 !== _p$.t && (_p$.t = _$setProp2(_el$24, "fg", _v$4, _p$.t));
         return _p$;
@@ -369,7 +386,7 @@ function MonitorCard(props) {
       });
       return _el$21;
     })()), null);
-    _$effect2((_$p) => _$setProp2(_el$15, "fg", theme.text, _$p));
+    _$effect2((_$p) => _$setProp2(_el$15, "fg", palette.text, _$p));
     return _el$11;
   })();
 }
@@ -380,8 +397,8 @@ function formatTime(value) {
   return date.toLocaleString();
 }
 function LogsDialog(props) {
-  const theme = createMemo2(() => props.api.theme.current);
-  const maxListRows = Math.max(6, Math.floor(props.api.renderer.height * 0.45));
+  const palette = createMemo2(() => tone(props.ctx.theme));
+  const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45));
   return (() => {
     var _el$25 = _$createElement2("box"), _el$26 = _$createElement2("box"), _el$27 = _$createElement2("text"), _el$28 = _$createTextNode2(`Sourcefed notifications (`), _el$29 = _$createTextNode2(`)`), _el$30 = _$createElement2("box"), _el$31 = _$createElement2("text");
     _$insertNode2(_el$25, _el$26);
@@ -409,7 +426,7 @@ function LogsDialog(props) {
         return (() => {
           var _el$35 = _$createElement2("text");
           _$insertNode2(_el$35, _$createTextNode2(`No notifications sent yet`));
-          _$effect2((_$p) => _$setProp2(_el$35, "fg", theme().textMuted, _$p));
+          _$effect2((_$p) => _$setProp2(_el$35, "fg", palette().textMuted, _$p));
           return _el$35;
         })();
       },
@@ -454,12 +471,12 @@ function LogsDialog(props) {
               var _el$45 = _$createElement2("text"), _el$46 = _$createTextNode2(` `);
               _$insertNode2(_el$45, _el$46);
               _$insert2(_el$45, () => entry.body, null);
-              _$effect2((_$p) => _$setProp2(_el$45, "fg", theme().textMuted, _$p));
+              _$effect2((_$p) => _$setProp2(_el$45, "fg", palette().textMuted, _$p));
               return _el$45;
             }
           }), null);
           _$effect2((_p$) => {
-            var _v$7 = entry.actionable ? theme().warning : theme().textMuted, _v$8 = theme().text, _v$9 = theme().text;
+            var _v$7 = entry.actionable ? palette().warning : palette().textMuted, _v$8 = palette().text, _v$9 = palette().text;
             _v$7 !== _p$.e && (_p$.e = _$setProp2(_el$39, "fg", _v$7, _p$.e));
             _v$8 !== _p$.t && (_p$.t = _$setProp2(_el$40, "fg", _v$8, _p$.t));
             _v$9 !== _p$.a && (_p$.a = _$setProp2(_el$42, "fg", _v$9, _p$.a));
@@ -475,7 +492,7 @@ function LogsDialog(props) {
       }
     }), null);
     _$effect2((_p$) => {
-      var _v$5 = theme().text, _v$6 = theme().textMuted;
+      var _v$5 = palette().text, _v$6 = palette().textMuted;
       _v$5 !== _p$.e && (_p$.e = _$setProp2(_el$27, "fg", _v$5, _p$.e));
       _v$6 !== _p$.t && (_p$.t = _$setProp2(_el$31, "fg", _v$6, _p$.t));
       return _p$;
@@ -489,7 +506,7 @@ function LogsDialog(props) {
 
 // .tui-build/tui/index.mjs
 var id = "sourcefed-tui";
-var index_default = { id, tui: sourcefedTui };
+var index_default = { id, setup: sourcefedTui };
 export {
   index_default as default,
   id

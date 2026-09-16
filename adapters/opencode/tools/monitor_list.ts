@@ -1,12 +1,17 @@
-import { tool, type ToolDefinition } from "@opencode-ai/plugin"
+import type { ToolContext } from "@opencode/plugin/promise/tool"
 import { callMonitorTool } from "../tool-result.ts"
 
-const definition: ToolDefinition = tool({
+const definition = {
+  name: "monitor_list",
   description: "List monitors created by the current session (id, name, source, delivery, enabled).",
-  args: {},
-  async execute(_args, context) {
-    return callMonitorTool("monitor_list", {}, context.sessionID)
+  input: {
+    type: "object",
+    properties: {},
+    additionalProperties: false,
   },
-})
+  async execute(_input: unknown, context: ToolContext) {
+    return { content: await callMonitorTool("monitor_list", {}, context.sessionID) }
+  },
+}
 
 export default definition

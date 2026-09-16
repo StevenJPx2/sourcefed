@@ -1,22 +1,23 @@
-import type { TuiPlugin, TuiPluginModule } from "@opencode-ai/plugin/tui"
+import type { Plugin } from "@opencode/plugin/tui"
 
-// Synchronous entry: no top-level await (the local-path loader may not wait
-// for TLA before reading exports). The compiled bundle's tui is loaded lazily
-// on first call instead.
-let tui: TuiPlugin | undefined
+// Synchronous entry: no top-level await (the local-path loader may not wait for
+// TLA before reading exports). The compiled bundle's setup is loaded lazily on
+// first call so its host-runtime imports resolve inside the TUI host.
+type Setup = Plugin.Definition["setup"]
 
-async function getTui(): Promise<TuiPlugin> {
-  if (!tui) {
-    const mod = (await import("./tui-compiled.mjs")) as { default: { tui: TuiPlugin } }
-    tui = mod.default.tui
+let setup: Setup | undefined
+
+async function getSetup(): Promise<Setup> {
+  if (!setup) {
+    const mod = (await import("./tui-compiled.mjs")) as { default: Plugin.Definition }
+    setup = mod.default.setup
   }
-  return tui
+  return setup
 }
 
 export const id = "sourcefed-tui"
 
 export default {
   id,
-  tui: ((api: Parameters<TuiPlugin>[0], options: Parameters<TuiPlugin>[1], meta: Parameters<TuiPlugin>[2]) =>
-    getTui().then((fn) => fn(api, options, meta))) as TuiPlugin,
-} satisfies TuiPluginModule
+  setup: (ctx: Parameters<Setup>[0]) => getSetup().then((fn) => fn(ctx)),
+} satisfies Plugin.Definition

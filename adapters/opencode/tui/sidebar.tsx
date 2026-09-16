@@ -2,10 +2,28 @@
 
 import { Show, createMemo, createSignal, onCleanup } from "solid-js"
 import { connectDaemonClient, defaultDaemonUrl, type DaemonClient, type MonitorView } from "@sourcefed/daemon"
-import type { TuiPluginApi, TuiThemeCurrent } from "@opencode-ai/plugin/tui"
+import type { Plugin } from "@opencode/plugin/tui"
+
+type ThemeTokens = Plugin.Context["theme"]
+type Color = ThemeTokens["text"]["default"]
+
+// V2 theme tokens are deeply nested; flatten the handful the sidebar and dialogs
+// use into a flat palette so the JSX stays legible.
+export type Tone = Record<"text" | "textMuted" | "accent" | "success" | "error" | "warning", Color>
+
+export function tone(theme: ThemeTokens): Tone {
+  return {
+    text: theme.text.default,
+    textMuted: theme.text.subdued,
+    accent: theme.text.action.primary.default,
+    success: theme.text.feedback.success.default,
+    error: theme.text.feedback.error.default,
+    warning: theme.text.feedback.warning.default,
+  }
+}
 
 export type SidebarProps = {
-  api: TuiPluginApi
+  ctx: Plugin.Context
   sessionID: string
 }
 
@@ -13,7 +31,7 @@ const REFRESH_MS = 3_000
 
 export function Sidebar(props: SidebarProps) {
   const [monitors, setMonitors] = createSignal<MonitorView[]>([])
-  const theme = createMemo(() => props.api.theme.current)
+  const palette = createMemo(() => tone(props.ctx.theme))
   const active = createMemo(() => monitors().filter((monitor) => monitor.enabled))
 
   const refresh = async () => {
@@ -36,34 +54,34 @@ export function Sidebar(props: SidebarProps) {
   return (
     <box flexDirection="column" width="100%" marginTop={1}>
       <box flexDirection="row" width="100%">
-        <text fg={theme().accent}>Sourcefed</text>
-        <text fg={theme().textMuted}> ({active().length})</text>
+        <text fg={palette().accent}>Sourcefed</text>
+        <text fg={palette().textMuted}> ({active().length})</text>
       </box>
-      <MonitorRows monitors={active} theme={theme()} compact />
+      <MonitorRows monitors={active} tone={palette()} compact />
     </box>
   )
 }
 
-export function MonitorRows(props: { monitors: () => MonitorView[]; theme: TuiThemeCurrent; compact?: boolean }) {
+export function MonitorRows(props: { monitors: () => MonitorView[]; tone: Tone; compact?: boolean }) {
   const visible = createMemo(() => props.monitors().slice(0, 4))
   return (
     <box flexDirection="column" width="100%">
-      <Show when={visible().length > 0} fallback={<text fg={props.theme.textMuted}>No active monitors</text>}>
+      <Show when={visible().length > 0} fallback={<text fg={props.tone.textMuted}>No active monitors</text>}>
         {visible().map((monitor) => (
           <box flexDirection="row" width="100%">
-            <text fg={monitorTone(monitor, props.theme)}>{monitor.icon}</text>
-            <text fg={props.theme.textMuted}> {monitor.name}</text>
+            <text fg={monitorTone(monitor, props.tone)}>{monitor.icon}</text>
+            <text fg={props.tone.textMuted}> {monitor.name}</text>
           </box>
         ))}
       </Show>
       <Show when={props.compact && visible().length < props.monitors().length}>
-        <text fg={props.theme.textMuted}>Open Sourcefed for more</text>
+        <text fg={props.tone.textMuted}>Open Sourcefed for more</text>
       </Show>
     </box>
   )
 }
 
-function monitorTone(monitor: MonitorView, theme: TuiThemeCurrent): TuiThemeCurrent["textMuted"] {
-  if (!monitor.enabled) return theme.textMuted
-  return theme.success
+function monitorTone(monitor: MonitorView, tone: Tone): Color {
+  if (!monitor.enabled) return tone.textMuted
+  return tone.success
 }

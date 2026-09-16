@@ -1,1 +1,1 @@
-export { default, Sourcefed } from "./adapters/opencode/index.ts"
+export { default, setupSourcefed } from "./adapters/opencode/index.ts"

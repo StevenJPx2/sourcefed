@@ -22,6 +22,8 @@ const EXTERNAL = [
   "@earendil-works/pi-coding-agent",
   "@earendil-works/pi-tui",
   "typebox",
+  "@opencode/plugin",
+  "@opencode/plugin/*",
 ]
 
 rmSync(OUT, { recursive: true, force: true })

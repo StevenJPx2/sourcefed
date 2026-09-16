@@ -2,9 +2,9 @@ import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
-import type { createOpencodeClient } from "@opencode-ai/sdk"
+import type { Plugin } from "@opencode/plugin"
 
-type OpenCodeClient = ReturnType<typeof createOpencodeClient>
+type SessionDomain = Plugin.Context["session"]
 type Target = { kind: "opencode-session"; id: string }
 
 let activeBridge: OpenCodeBridge | undefined
@@ -15,7 +15,7 @@ export class OpenCodeBridge {
   private lastAttemptAt = 0
   private lastError: string | undefined
 
-  constructor(private readonly opencode: OpenCodeClient) {}
+  constructor(private readonly session: SessionDomain) {}
 
   async start(): Promise<void> {
     await this.ensureDaemon()
@@ -70,36 +70,20 @@ export class OpenCodeBridge {
     }
   }
 
+  // V2 `session.prompt` has no model field — the model is a session property and
+  // prompting does not reset it, so no model-reuse dance is needed. Actionable
+  // events prompt the agent; non-actionable ones inject a synthetic message that
+  // lands in the transcript without triggering a reply.
   private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
     for (const queued of events) {
-      const model = await this.currentModel(queued.target.id)
-      const body = {
-        ...(queued.event.actionable ? {} : { noReply: true }),
-        ...(model ? { model } : {}),
-        parts: [{ type: "text" as const, text: eventText(queued.event) }],
+      const sessionID = queued.target.id
+      const text = eventText(queued.event)
+      if (queued.event.actionable) {
+        await this.session.prompt({ sessionID, text })
+      } else {
+        await this.session.synthetic({ sessionID, text })
       }
-      await this.opencode.session.prompt({ path: { id: queued.target.id }, body })
     }
-  }
-
-  // A prompt without an explicit model makes OpenCode fall back to the default
-  // model, silently switching the session off whatever it was using. Reuse the
-  // model from the session's last assistant turn so a notification never
-  // changes the active model.
-  private async currentModel(sessionID: string): Promise<{ providerID: string; modelID: string } | undefined> {
-    try {
-      const result = await this.opencode.session.messages({ path: { id: sessionID } })
-      const messages = result.data ?? []
-      for (let i = messages.length - 1; i >= 0; i -= 1) {
-        const info = messages[i].info
-        if (info.role === "assistant" && info.providerID && info.modelID) {
-          return { providerID: info.providerID, modelID: info.modelID }
-        }
-      }
-    } catch {
-      // No message history (or the read failed) — fall back to the default.
-    }
-    return undefined
   }
 
   private target(sessionID: string): Target {

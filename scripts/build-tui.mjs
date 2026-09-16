@@ -1,5 +1,7 @@
-import { transformSolidSource } from "../node_modules/@opentui/solid/scripts/solid-transform.js"
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { createRequire } from "node:module"
+import path from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { build } from "esbuild"
 
 // Builds the OpenCode TUI plugin bundle. Two things are required for the
@@ -13,9 +15,17 @@ import { build } from "esbuild"
 //    imports to `opentui:runtime-module:` so the plugin shares the host's
 //    single Solid runtime (a second copy would never receive signal updates).
 //
-// The entry must also default-export `{ id, tui }` — the local-path plugin
-// loader requires both a named `id` and a default object with `tui()`, and
+// The entry must also default-export `{ id, setup }` — the local-path plugin
+// loader requires both a named `id` and a default object with `setup()`, and
 // rejects modules whose top-level await delays those exports.
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
+
+// @opentui/solid is a dependency of the opencode adapter and may not be hoisted
+// to the root node_modules, so resolve its transform script from the adapter.
+const adapterRequire = createRequire(path.join(ROOT, "adapters/opencode/package.json"))
+const solidPkgDir = path.dirname(adapterRequire.resolve("@opentui/solid"))
+const { transformSolidSource } = await import(pathToFileURL(path.join(solidPkgDir, "scripts/solid-transform.js")).href)
 
 const RUNTIME_MODULE = "opentui:runtime-module:"
 const SRC = "adapters/opencode/tui"
@@ -53,7 +63,7 @@ writeFileSync(pluginPath, readFileSync(pluginPath, "utf8").replace("./sidebar.ts
 writeFileSync(`${OUT}/index.mjs`, [
   `import { sourcefedTui } from "./plugin.mjs"`,
   `export const id = "sourcefed-tui"`,
-  `export default { id, tui: sourcefedTui }`,
+  `export default { id, setup: sourcefedTui }`,
   ``,
 ].join("\n"))
 
@@ -63,7 +73,7 @@ await build({
   bundle: true,
   format: "esm",
   platform: "browser",
-  external: ["node:*", "@opencode-ai/plugin/tui", "@fdcn/sourcefed/daemon", "opentui:runtime-module:*"],
+  external: ["node:*", "@opencode/plugin/tui", "@fdcn/sourcefed/daemon", "opentui:runtime-module:*"],
   logLevel: "info",
 })
 

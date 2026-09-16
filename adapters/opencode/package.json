@@ -9,22 +9,27 @@
     "./tui": "./tui.ts"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "1.18.13",
-    "@opencode-ai/sdk": "1.18.13",
+    "@opencode/plugin": "2.0.4",
     "@sourcefed/cli": "*",
     "@sourcefed/core": "*",
     "@sourcefed/daemon": "*"
   },
   "peerDependencies": {
-    "@opentui/core": ">=0.4.5",
-    "@opentui/keymap": ">=0.4.5",
-    "@opentui/solid": ">=0.4.5",
+    "@opencode/theme": ">=2.0.4",
+    "@opentui/core": ">=0.5.10",
+    "@opentui/solid": ">=0.5.10",
     "solid-js": ">=1.9.0"
   },
+  "peerDependenciesMeta": {
+    "@opencode/theme": { "optional": true },
+    "@opentui/core": { "optional": true },
+    "@opentui/solid": { "optional": true },
+    "solid-js": { "optional": true }
+  },
   "devDependencies": {
-    "@opentui/core": "0.5.1",
-    "@opentui/keymap": "0.5.1",
-    "@opentui/solid": "0.5.1",
+    "@opencode/theme": "2.0.4",
+    "@opentui/core": "0.5.10",
+    "@opentui/solid": "0.5.10",
     "solid-js": "1.9.12"
   },
   "private": true
