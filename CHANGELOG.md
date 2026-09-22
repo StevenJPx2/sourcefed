@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v0.3.1
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.0...v0.3.1)
+
+### 🩹 Fixes
+
+- **daemon:** Stop replaying a stopped monitor's queued events ([60b5f1f](https://github.com/StevenJPx2/sourcefed/commit/60b5f1f))
+- **opencode:** Repair v2 plugin setup and TUI registration ([895dfd9](https://github.com/StevenJPx2/sourcefed/commit/895dfd9))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.0 ([553d836](https://github.com/StevenJPx2/sourcefed/commit/553d836))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.0
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.9...v0.3.0)
