@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.3.2
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.1...v0.3.2)
+
+### 🩹 Fixes
+
+- **opencode:** Align TUI theme with OpenCode 2.0.12 ([c3da1e5](https://github.com/StevenJPx2/sourcefed/commit/c3da1e5))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.1 ([26769ab](https://github.com/StevenJPx2/sourcefed/commit/26769ab))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.1
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.0...v0.3.1)
