@@ -5,7 +5,7 @@ import { connectDaemonClient, defaultDaemonUrl, type DaemonClient, type MonitorV
 import type { Plugin } from "@opencode/plugin/tui"
 
 type ThemeTokens = Plugin.Context["theme"]
-type Color = ThemeTokens["text"]["default"]
+type Color = ThemeTokens["text"]["base"]
 
 // V2 theme tokens are deeply nested; flatten the handful the sidebar and dialogs
 // use into a flat palette so the JSX stays legible.
@@ -13,12 +13,12 @@ export type Tone = Record<"text" | "textMuted" | "accent" | "success" | "error" 
 
 export function tone(theme: ThemeTokens): Tone {
   return {
-    text: theme.text.default,
-    textMuted: theme.text.subdued,
-    accent: theme.text.action.primary.default,
-    success: theme.text.feedback.success.default,
-    error: theme.text.feedback.error.default,
-    warning: theme.text.feedback.warning.default,
+    text: theme.text.base,
+    textMuted: theme.text.muted,
+    accent: theme.text.action.primary.base,
+    success: theme.text.feedback.success.base,
+    error: theme.text.feedback.error.base,
+    warning: theme.text.feedback.warning.base,
   }
 }
 

@@ -23,12 +23,12 @@ import { Show, createMemo, createSignal, onCleanup } from "opentui:runtime-modul
 import { connectDaemonClient, defaultDaemonUrl } from "@fdcn/sourcefed/daemon";
 function tone(theme) {
   return {
-    text: theme.text.default,
-    textMuted: theme.text.subdued,
-    accent: theme.text.action.primary.default,
-    success: theme.text.feedback.success.default,
-    error: theme.text.feedback.error.default,
-    warning: theme.text.feedback.warning.default
+    text: theme.text.base,
+    textMuted: theme.text.muted,
+    accent: theme.text.action.primary.base,
+    success: theme.text.feedback.success.base,
+    error: theme.text.feedback.error.base,
+    warning: theme.text.feedback.warning.base
   };
 }
 var REFRESH_MS = 3e3;
