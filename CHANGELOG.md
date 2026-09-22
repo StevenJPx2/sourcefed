@@ -1,6 +1,32 @@
 # Changelog
 
 
+## v0.3.0
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.9...v0.3.0)
+
+### 🚀 Enhancements
+
+- **opencode:** ⚠️  Migrate adapter to OpenCode plugin API v2 ([eb9a9ab](https://github.com/StevenJPx2/sourcefed/commit/eb9a9ab))
+- Add package-lock ([73cdc8e](https://github.com/StevenJPx2/sourcefed/commit/73cdc8e))
+
+### 🩹 Fixes
+
+- **daemon:** Stop replaying a stopped monitor's queued events ([d0cae57](https://github.com/StevenJPx2/sourcefed/commit/d0cae57))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.2.9 ([ee7a23f](https://github.com/StevenJPx2/sourcefed/commit/ee7a23f))
+- Bump to 0.3.0-next.0 ([d89cb28](https://github.com/StevenJPx2/sourcefed/commit/d89cb28))
+
+#### ⚠️ Breaking Changes
+
+- **opencode:** ⚠️  Migrate adapter to OpenCode plugin API v2 ([eb9a9ab](https://github.com/StevenJPx2/sourcefed/commit/eb9a9ab))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.2.9
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.2.8...v0.2.9)
