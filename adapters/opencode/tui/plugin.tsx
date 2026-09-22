@@ -28,6 +28,25 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
     render: ({ sessionID }) => <Sidebar ctx={ctx} sessionID={sessionID} />,
   })
 
+  const disposeKeymapSlot = ctx.ui.slot({
+    append: "app",
+    render: () => <KeymapRegistration ctx={ctx} currentSessionID={currentSessionID} getClient={getClient} />,
+  })
+
+  return () => {
+    disposeSlot()
+    disposeKeymapSlot()
+    void client?.close()
+  }
+}
+
+function KeymapRegistration(props: {
+  ctx: Plugin.Context
+  currentSessionID: () => string | undefined
+  getClient: () => Promise<DaemonClient>
+}) {
+  const { ctx, currentSessionID, getClient } = props
+
   ctx.keymap.layer(() => ({
     mode: "global",
     commands: [
@@ -38,10 +57,12 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
         slash: { name: "sourcefed" },
         run: async () => {
           const id = currentSessionID()
+
           if (!id) {
             ctx.ui.toast.show({ variant: "warning", message: "No active OpenCode session" })
             return
           }
+
           try {
             const daemon = await getClient()
             const result = (await daemon.request("monitor.list", { target: { kind: "opencode-session", id } })) as { monitors?: MonitorView[] }
@@ -60,10 +81,12 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
         slash: { name: "sourcefed-logs" },
         run: async () => {
           const id = currentSessionID()
+
           if (!id) {
             ctx.ui.toast.show({ variant: "warning", message: "No active OpenCode session" })
             return
           }
+
           try {
             const daemon = await getClient()
             const result = (await daemon.request("monitor.logs", { target: { kind: "opencode-session", id } })) as { logs?: LogEntryView[] }
@@ -78,10 +101,7 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
     ],
   }))
 
-  return () => {
-    disposeSlot()
-    void client?.close()
-  }
+  return null
 }
 
 function MonitorDialog(props: { ctx: Plugin.Context; monitors: MonitorView[] }) {

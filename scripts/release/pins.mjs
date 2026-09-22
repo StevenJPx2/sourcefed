@@ -11,9 +11,12 @@ const VERSION = process.argv[2] ?? JSON.parse(readFileSync(path.join(ROOT, "pack
 const DOTFILES = process.env.DOTFILES_DIR ?? path.join(os.homedir(), "Documents/Projects/dotfiles")
 const TAP = process.env.TAP_DIR ?? path.join(os.homedir(), "Documents/Projects/homebrew-sourcefed")
 
-// 1. dotfiles: opencode.jsonc + tui.json plugin pins
+// 1. dotfiles: OpenCode server and CLI plugin pins
 if (existsSync(path.join(DOTFILES, "configs/opencode/opencode.jsonc"))) {
-  for (const file of ["configs/opencode/opencode.jsonc", "configs/opencode/tui.json"]) {
+  const files = ["configs/opencode/opencode.jsonc", "configs/opencode/cli.json", "configs/opencode/tui.json"]
+    .filter((file) => existsSync(path.join(DOTFILES, file)))
+
+  for (const file of files) {
     const full = path.join(DOTFILES, file)
     writeFileSync(full, readFileSync(full, "utf8").replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${VERSION}`))
   }

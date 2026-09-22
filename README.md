@@ -44,18 +44,18 @@ sourcefed setup opencode        # or one at a time
 sourcefed setup pi
 ```
 
-`setup` delegates to each host's own installer: `opencode plugin @fdcn/sourcefed@<version> --global` (patches `opencode.json` and `tui.json`) and `pi install npm:@fdcn/sourcefed@<version>`. When a host binary is missing, it prints the manual instructions below.
+`setup` delegates to each host's own installer: `opencode plugin add @fdcn/sourcefed@<version>` (server plugin) and adds the package to OpenCode's global `cli.json` (TUI plugin), then runs `pi install npm:@fdcn/sourcefed@<version>`. When a host binary is missing, it prints the manual instructions below.
 
 Manually, OpenCode takes the package in both plugin lists:
 
 ```json
-// opencode.json
-{ "plugin": ["@fdcn/sourcefed@0.3.0"] }
+// ~/.config/opencode/opencode.jsonc
+{ "plugins": ["@fdcn/sourcefed@0.3.0"] }
 ```
 
 ```json
-// tui.json
-{ "plugin": ["@fdcn/sourcefed@0.3.0"] }
+// ~/.config/opencode/cli.json
+{ "plugins": ["@fdcn/sourcefed@0.3.0"] }
 ```
 
 Pi:

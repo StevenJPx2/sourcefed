@@ -177,6 +177,26 @@ var sourcefedTui = (ctx) => {
       sessionID
     })
   });
+  const disposeKeymapSlot = ctx.ui.slot({
+    append: "app",
+    render: () => _$createComponent2(KeymapRegistration, {
+      ctx,
+      currentSessionID,
+      getClient
+    })
+  });
+  return () => {
+    disposeSlot();
+    disposeKeymapSlot();
+    void client?.close();
+  };
+};
+function KeymapRegistration(props) {
+  const {
+    ctx,
+    currentSessionID,
+    getClient
+  } = props;
   ctx.keymap.layer(() => ({
     mode: "global",
     commands: [{
@@ -259,11 +279,8 @@ var sourcefedTui = (ctx) => {
       }
     }]
   }));
-  return () => {
-    disposeSlot();
-    void client?.close();
-  };
-};
+  return null;
+}
 function MonitorDialog(props) {
   const palette = createMemo2(() => tone(props.ctx.theme));
   const active = props.monitors.filter((monitor) => monitor.enabled);
