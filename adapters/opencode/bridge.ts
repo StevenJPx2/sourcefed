@@ -78,10 +78,12 @@ export class OpenCodeBridge {
     for (const queued of events) {
       const sessionID = queued.target.id
       const text = eventText(queued.event)
+      // Lets other plugins tell monitor events from the user's own words.
+      const metadata = { sourcefed: { eventID: queued.id, monitorID: queued.monitorID, kind: queued.event.kind } }
       if (queued.event.actionable) {
-        await this.session.prompt({ sessionID, text })
+        await this.session.prompt({ sessionID, text, metadata })
       } else {
-        await this.session.synthetic({ sessionID, text })
+        await this.session.synthetic({ sessionID, text, metadata })
       }
     }
   }

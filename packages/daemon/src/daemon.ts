@@ -1,7 +1,7 @@
 import { JsonMonitorEventQueue, JsonMonitorStore, MonitorRuntime, type MonitorEventQueue, type MonitorRecord, type MonitorStore, type MonitorTarget, type QueuedMonitorEvent } from "@sourcefed/core"
 import { isSource, SOURCE_MAP, SOURCE_TYPES, sourceDefinition, sourceForInput, sourceForWebhookPath } from "./registry.ts"
 import type { DaemonCreateInput, DaemonResult, LogEntryView, MonitorView, SourcefedDaemonOptions } from "./types"
-import { NotifyingEventSink, targetKey } from "./utils"
+import { GatedEventSink, gateFromEnv, NotifyingEventSink, targetKey } from "./utils"
 
 const DELIVERY_LOG_LIMIT = 100
 
@@ -21,9 +21,11 @@ export class SourcefedDaemon {
     this.store = options.store ?? new JsonMonitorStore({ stateDir: options.stateDir })
     const queueDir = options.stateDir ?? (this.store instanceof JsonMonitorStore ? this.store.stateDir : undefined) ?? defaultStateDir()
     this.queue = options.eventQueue ?? new JsonMonitorEventQueue(queueDir)
+    const notifying = new NotifyingEventSink(this.queue, (target) => this.emit(target))
+    const gate = options.gate === undefined ? gateFromEnv() : options.gate ?? undefined
     this.runtime = new MonitorRuntime({
       store: this.store,
-      sink: new NotifyingEventSink(this.queue, (target) => this.emit(target)),
+      sink: gate ? new GatedEventSink(notifying, gate) : notifying,
       sources: SOURCE_MAP,
       sourceForWebhookPath,
       pollLoopSec: options.pollLoopSec,
