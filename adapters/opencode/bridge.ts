@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
-import type { QueuedMonitorEvent } from "@sourcefed/core"
+import { eventToText, type QueuedMonitorEvent } from "@sourcefed/core"
 import { type Plugin, Rpc } from "@opencode/plugin"
 
 type SessionDomain = Plugin.Context["session"]
@@ -107,24 +107,22 @@ export class OpenCodeBridge {
     }
   }
 
-  // V2 `session.prompt` has no model field — the model is a session property and
-  // prompting does not reset it, so no model-reuse dance is needed. Actionable
-  // events prompt the agent; non-actionable ones inject a synthetic message that
-  // lands in the transcript without triggering a reply.
+  // Every event arrives as a synthetic message, never as a user prompt, so it is
+  // not mistaken for the user's own words. Actionable events resume an idle
+  // agent; the rest wait in the transcript for the next turn.
   private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
     for (const queued of events) {
       const sessionID = queued.target.id
 
       if (!(await this.admitted(sessionID, queued.event))) continue
 
-      const text = eventText(queued.event)
-      // Lets other plugins tell monitor events from the user's own words.
-      const metadata = { sourcefed: { eventID: queued.id, monitorID: queued.monitorID, kind: queued.event.kind } }
-      if (queued.event.actionable) {
-        await this.session.prompt({ sessionID, text, metadata })
-      } else {
-        await this.session.synthetic({ sessionID, text, metadata })
-      }
+      await this.session.synthetic({
+        sessionID,
+        text: eventToText(queued.event),
+        description: `sourcefed ${queued.event.kind}`,
+        metadata: { sourcefed: { eventID: queued.id, monitorID: queued.monitorID, kind: queued.event.kind } },
+        resume: queued.event.actionable,
+      })
     }
   }
 
@@ -174,9 +172,4 @@ export function setOpenCodeBridge(bridge: OpenCodeBridge): void {
 export function getOpenCodeBridge(): OpenCodeBridge {
   if (!activeBridge) throw new Error("Sourcefed OpenCode bridge is not initialized")
   return activeBridge
-}
-
-function eventText(event: QueuedMonitorEvent["event"]): string {
-  const header = `[sourcefed monitor] ${event.summary}`
-  return event.body ? `${header}\n\n${event.body}` : header
 }

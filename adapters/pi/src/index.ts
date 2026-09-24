@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
-import type { QueuedMonitorEvent } from "@sourcefed/core"
+import { eventToText, type QueuedMonitorEvent } from "@sourcefed/core"
 import type { LogEntryView, MonitorView } from "@sourcefed/daemon"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 import { logLines, monitorLines, showSourcefedDialog } from "./dialog.ts"
@@ -202,7 +202,7 @@ async function routeEvents(pi: ExtensionAPI, events: QueuedMonitorEvent[]): Prom
   for (const queued of events) {
     await pi.sendMessage({
       customType: "sourcefed-monitor",
-      content: `[sourcefed monitor] ${queued.event.summary}${queued.event.body ? `\n\n${queued.event.body}` : ""}`,
+      content: eventToText(queued.event),
       display: true,
       details: { actionable: queued.event.actionable, eventID: queued.id },
     }, { triggerTurn: queued.event.actionable, deliverAs: "steer" })
