@@ -93,13 +93,11 @@ starts a webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PO
 receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; webhook
 signature (HMAC / Slack signing) authenticates requests, not the daemon token.
 
-Set `SOURCEFED_GATE_URL` to let another local consumer decide which events reach the
-session (for example Chauffeur at `http://127.0.0.1:18790/integrations/sourcefed`). Each
-event is POSTed as JSON `{target, monitorID, source, event}` before it is queued; only a
-`{"deliver": false}` reply withholds it. A failed, slow (over 3 s), or unclear reply delivers
-as usual. `SOURCEFED_GATE_TOKEN` is sent as a bearer token. Events delivered to OpenCode carry
-`metadata.sourcefed` (`eventID`, `monitorID`, `kind`), so plugins can tell them from the
-user's own messages.
+In OpenCode, when the Chauffeur plugin is loaded, sourcefed asks its `chauffeur.gate` RPC
+before delivering each event, and skips events Chauffeur judges need no action (bot comments,
+approvals, status churn). Without Chauffeur, or if the gate fails or takes over 3 s, every event
+is delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `monitorID`,
+`kind`), so plugins can tell them from the user's own messages.
 
 ## MCP
 

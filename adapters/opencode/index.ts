@@ -9,7 +9,7 @@ import monitorStop from "./tools/monitor_stop.ts"
 // Shared setup: starts the daemon bridge and registers the monitor tools.
 // Reused by the published `./server` entry, which layers guidance on top.
 export async function setupSourcefed(ctx: Plugin.Context): Promise<Plugin.Cleanup> {
-  const bridge = new OpenCodeBridge(ctx.session)
+  const bridge = new OpenCodeBridge(ctx.session, ctx.rpc)
   setOpenCodeBridge(bridge)
   await bridge.start()
 

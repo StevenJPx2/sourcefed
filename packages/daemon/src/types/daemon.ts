@@ -1,5 +1,4 @@
 import type { MonitorEventQueue, MonitorRecord, MonitorStore, MonitorTarget, QueuedMonitorEvent } from "@sourcefed/core"
-import type { GateOptions } from "../utils/gate.ts"
 
 export type DaemonCreateInput = {
   name: string
@@ -18,8 +17,6 @@ export type SourcefedDaemonOptions = {
   eventQueue?: MonitorEventQueue
   stateDir?: string
   pollLoopSec?: number
-  /** Ask this consumer whether each event reaches the session; defaults to SOURCEFED_GATE_URL. */
-  gate?: GateOptions | null
 }
 
 export type MonitorView = {

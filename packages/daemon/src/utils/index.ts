@@ -3,5 +3,4 @@ export { serveHttp, type HttpServer, type HttpServerOptions } from "./http-serve
 export { RequestRouter } from "./request-router.ts"
 export { DEFAULT_DAEMON_URL, daemonCommand, defaultDaemonUrl, sleep, spawnLocalDaemon, withTimeout } from "./spawn.ts"
 export { NotifyingEventSink } from "./sink.ts"
-export { GatedEventSink, gateFromEnv, type GatedEvent, type GateOptions } from "./gate.ts"
 export { decodeTarget, encodeTarget, targetKey } from "./target.ts"
