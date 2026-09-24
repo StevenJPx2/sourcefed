@@ -1,6 +1,24 @@
 # Changelog
 
 
+## v0.3.3
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.2...v0.3.3)
+
+### 🚀 Enhancements
+
+- **daemon:** Let a local consumer gate event delivery ([b909862](https://github.com/StevenJPx2/sourcefed/commit/b909862))
+- **opencode:** Gate delivery through Chauffeur's plugin RPC ([c27fda6](https://github.com/StevenJPx2/sourcefed/commit/c27fda6))
+- **adapters:** Deliver monitor events as labelled synthetic messages, like Chauffeur ([c847cf0](https://github.com/StevenJPx2/sourcefed/commit/c847cf0))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.2 ([358330e](https://github.com/StevenJPx2/sourcefed/commit/358330e))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.2
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.1...v0.3.2)
