@@ -2,7 +2,7 @@ import { build } from "esbuild"
 import { readdirSync, rmSync } from "node:fs"
 import path from "node:path"
 
-const ROOTS = ["packages", "providers"]
+const ROOTS = ["packages", "providers", "adapters"]
 const files = []
 for (const root of ROOTS) {
   for (const entry of walk(path.resolve(root))) {

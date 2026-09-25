@@ -94,8 +94,9 @@ receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; we
 signature (HMAC / Slack signing) authenticates requests, not the daemon token.
 
 In OpenCode, when the Chauffeur plugin is loaded, sourcefed asks its `chauffeur.gate` RPC
-before delivering each event, and skips events Chauffeur judges need no action (bot comments,
-approvals, status churn). Without Chauffeur, or if the gate fails or takes over 3 s, every event
+before delivering each event, with the event's `monitorID` so Chauffeur can look up what the
+monitor watches, and skips events Chauffeur judges need no action (bot comments, approvals,
+status churn). Without Chauffeur, or if the gate fails or takes over 3 s, every event
 is delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `monitorID`,
 `kind`), so plugins can tell them from the user's own messages.
 

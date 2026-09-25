@@ -23,6 +23,8 @@ const ChauffeurGate = Rpc.define({
         type: "object",
         properties: {
           sessionID: { type: "string" },
+          // The monitor that produced the event, so the gate knows what it watches.
+          monitorID: { type: "string" },
           source: { type: "string" },
           kind: { type: "string" },
           summary: { type: "string" },
@@ -114,7 +116,7 @@ export class OpenCodeBridge {
     for (const queued of events) {
       const sessionID = queued.target.id
 
-      if (!(await this.admitted(sessionID, queued.event))) continue
+      if (!(await this.admitted(sessionID, queued))) continue
 
       await this.session.synthetic({
         sessionID,
@@ -131,14 +133,17 @@ export class OpenCodeBridge {
    * `deliver: false` withholds the event; no gate, an error, or a slow answer
    * delivers.
    */
-  private async admitted(sessionID: string, event: QueuedMonitorEvent["event"]): Promise<boolean> {
+  private async admitted(sessionID: string, queued: QueuedMonitorEvent): Promise<boolean> {
     if (!this.rpc) return true
+
+    const { event } = queued
 
     try {
       const source = (event.source as { type?: unknown } | undefined)?.type
       const reply = await this.rpc(ChauffeurGate).gate(
         {
           sessionID,
+          monitorID: queued.monitorID,
           source: typeof source === "string" ? source : "unknown",
           kind: event.kind,
           summary: event.summary,
