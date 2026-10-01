@@ -8,6 +8,9 @@ export async function dispatchDaemonRequest(daemon: SourcefedDaemon, method: str
       return daemon.createMonitor(createTarget(params), createCreateInput(params))
     case "monitor.list":
       return daemon.listMonitors(createTarget(params))
+    case "monitor.targets":
+      if (typeof params.kind !== "string" || !params.kind) throw new Error("monitor.targets requires params.kind")
+      return { targets: await daemon.listTargets(params.kind) }
     case "monitor.status":
       return daemon.getMonitor(createTarget(params), String(params.id))
     case "monitor.stop":

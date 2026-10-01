@@ -32,6 +32,20 @@ describe("SourcefedDaemon", () => {
     await daemon.stop()
   })
 
+  test("lists each target of a kind that has an enabled monitor, once", async () => {
+    const daemon = createDaemon()
+    const other: MonitorTarget = { kind: "test", id: "session-2" }
+    await daemon.createMonitor(target, { name: "ADEPT-1", sourceType: "jira", issueKey: "ADEPT-1" })
+    await daemon.createMonitor(target, { name: "ADEPT-2", sourceType: "jira", issueKey: "ADEPT-2" })
+    const stopped = await daemon.createMonitor(other, { name: "ADEPT-3", sourceType: "jira", issueKey: "ADEPT-3" })
+    await daemon.createMonitor({ kind: "cli", id: "host" }, { name: "ADEPT-4", sourceType: "jira", issueKey: "ADEPT-4" })
+    if (!stopped.ok || !stopped.monitor) throw new Error("monitor creation failed")
+    await daemon.stopMonitor(other, stopped.monitor.id)
+
+    assert.deepEqual(await daemon.listTargets("test"), [target])
+    await daemon.stop()
+  })
+
   test("rejects unknown source types", async () => {
     const daemon = createDaemon()
     const result = await daemon.createMonitor(target, { name: "nope", sourceType: "telepathy" })

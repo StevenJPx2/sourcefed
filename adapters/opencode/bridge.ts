@@ -6,7 +6,8 @@ import { type Plugin, Rpc } from "@opencode/plugin"
 
 type SessionDomain = Plugin.Context["session"]
 type RpcDomain = Plugin.Context["rpc"]
-type Target = { kind: "opencode-session"; id: string }
+const TARGET_KIND = "opencode-session"
+type Target = { kind: typeof TARGET_KIND; id: string }
 
 const GATE_TIMEOUT_MS = 3_000
 
@@ -47,7 +48,7 @@ let activeBridge: OpenCodeBridge | undefined
 
 export class OpenCodeBridge {
   private daemon?: DaemonClient
-  private readonly listeners = new Map<string, { close(): Promise<void> }>()
+  private readonly listeners = new Map<string, Promise<{ close(): Promise<void> }>>()
   private lastAttemptAt = 0
   private lastError: string | undefined
 
@@ -62,12 +63,21 @@ export class OpenCodeBridge {
 
   async ensureTarget(sessionID: string): Promise<void> {
     await this.ensureDaemon()
-    if (this.listeners.has(sessionID)) return
-    const target = this.target(sessionID)
-    const listener = await this.daemon!.subscribe(target, async (events) => {
+    const existing = this.listeners.get(sessionID)
+    if (existing) {
+      await existing
+      return
+    }
+    const pending = this.daemon!.subscribe(this.target(sessionID), async (events) => {
       await this.routeEvents(events)
     })
-    this.listeners.set(sessionID, listener)
+    this.listeners.set(sessionID, pending)
+    try {
+      await pending
+    } catch (error) {
+      this.listeners.delete(sessionID)
+      throw error
+    }
   }
 
   async callTool(name: string, arguments_: Record<string, unknown>, sessionID: string): Promise<unknown> {
@@ -80,7 +90,7 @@ export class OpenCodeBridge {
   }
 
   async close(): Promise<void> {
-    for (const listener of this.listeners.values()) await listener.close()
+    for (const pending of this.listeners.values()) await pending.then((listener) => listener.close(), () => undefined)
     this.listeners.clear()
     await this.daemon?.close()
     this.daemon = undefined
@@ -91,22 +101,35 @@ export class OpenCodeBridge {
     if (Date.now() - this.lastAttemptAt < 15_000) return
     this.lastAttemptAt = Date.now()
     try {
-      const url = process.env.SOURCEFED_DAEMON_URL
-      if (url) {
-        this.daemon = await connectDaemonClient({ name: "sourcefed-opencode", url })
-        return
-      }
-      const local = daemonCommand(cliEntry())
-      const spawned = await spawnLocalDaemon({
-        command: local.command,
-        args: local.args,
-        env: daemonEnvironment(),
-      })
-      this.daemon = await connectDaemonClient({ name: "sourcefed-opencode", url: spawned.url })
+      this.daemon = await connectDaemon()
+      void this.resubscribe()
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : String(error)
       console.error(`[sourcefed] daemon unavailable: ${this.lastError}`)
     }
+  }
+
+  /**
+   * Monitors outlive this process, so after a restart nothing listens for their
+   * sessions until something subscribes. Subscribe every session that has an
+   * enabled monitor and still exists here; a deleted session is skipped, since
+   * delivering to it would fail and retry forever.
+   */
+  private async resubscribe(): Promise<void> {
+    try {
+      const { targets } = (await this.daemon!.request("monitor.targets", { kind: TARGET_KIND })) as { targets: Target[] }
+      await Promise.all(targets.map((target) => this.resubscribeTarget(target.id)))
+    } catch (error) {
+      console.error(`[sourcefed] resubscribe failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  private async resubscribeTarget(sessionID: string): Promise<void> {
+    const exists = await this.session.get({ sessionID }).then(() => true, () => false)
+    if (!exists) return
+    await this.ensureTarget(sessionID).catch((error: unknown) => {
+      console.error(`[sourcefed] subscribe ${sessionID} failed: ${error instanceof Error ? error.message : String(error)}`)
+    })
   }
 
   // Every event arrives as a synthetic message, never as a user prompt, so it is
@@ -160,8 +183,20 @@ export class OpenCodeBridge {
   }
 
   private target(sessionID: string): Target {
-    return { kind: "opencode-session", id: sessionID }
+    return { kind: TARGET_KIND, id: sessionID }
   }
+}
+
+async function connectDaemon(): Promise<DaemonClient> {
+  const url = process.env.SOURCEFED_DAEMON_URL
+  if (url) return connectDaemonClient({ name: "sourcefed-opencode", url })
+  const local = daemonCommand(cliEntry())
+  const spawned = await spawnLocalDaemon({
+    command: local.command,
+    args: local.args,
+    env: daemonEnvironment(),
+  })
+  return connectDaemonClient({ name: "sourcefed-opencode", url: spawned.url })
 }
 
 function cliEntry(): string {

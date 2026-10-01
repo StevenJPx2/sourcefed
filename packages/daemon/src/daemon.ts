@@ -88,6 +88,19 @@ export class SourcefedDaemon {
     return { ok: true, monitors: monitors.map(monitorView) }
   }
 
+  /**
+   * Every target of `kind` with an enabled monitor, so a host that restarts can
+   * resubscribe the sessions whose monitors outlived it.
+   */
+  async listTargets(kind: string): Promise<MonitorTarget[]> {
+    const targets = new Map<string, MonitorTarget>()
+    for (const monitor of await this.service.list()) {
+      if (!monitor.enabled || monitor.target.kind !== kind) continue
+      targets.set(targetKey(monitor.target), { kind: monitor.target.kind, id: monitor.target.id })
+    }
+    return [...targets.values()]
+  }
+
   async getMonitor(target: MonitorTarget, id: string): Promise<DaemonResult> {
     const monitor = await ownedMonitor(this.service, id, target)
     if (!monitor) return { ok: false, error: `monitor ${id} was not found for this target` }

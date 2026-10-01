@@ -33,6 +33,34 @@ test("the gate learns which monitor produced the event", async () => {
   assert.equal(delivered.length, 1)
 })
 
+test("after a restart it resubscribes the sessions that still exist", async () => {
+  const subscribed: string[] = []
+  const session = {
+    get: async ({ sessionID }: { sessionID: string }) => {
+      if (sessionID === "ses_deleted") throw new Error("session not found")
+      return { id: sessionID }
+    },
+  } as unknown as Bridge[0]
+  const daemon = {
+    request: async (method: string, params: { kind: string }) => {
+      assert.deepEqual([method, params], ["monitor.targets", { kind: "opencode-session" }])
+      return { targets: [{ kind: "opencode-session", id: "ses_live" }, { kind: "opencode-session", id: "ses_deleted" }] }
+    },
+    subscribe: async (target: { id: string }) => {
+      subscribed.push(target.id)
+      return { close: async () => {} }
+    },
+  }
+  const instance = new OpenCodeBridge(session)
+  const internals = instance as unknown as { daemon: typeof daemon; resubscribe(): Promise<void> }
+  internals.daemon = daemon
+
+  await internals.resubscribe()
+  await instance.ensureTarget("ses_live")
+
+  assert.deepEqual(subscribed, ["ses_live"])
+})
+
 test("an explicit deliver: false withholds the event", async () => {
   const { instance, delivered, route } = bridge(false)
 
