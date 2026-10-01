@@ -7,8 +7,6 @@ export async function pollSlack(source: SlackSourceRecord, cursorRaw: unknown): 
     ? await fetchSlackThread(source.channelId, source.threadTs)
     : await fetchSlackDm(source.channelId)
 
-  if (!result) throw new Error("slack API request failed; check SOURCEFED_SLACK_TOKEN")
-
   const parsed = parseSlackReadResult(result, cursorRaw, source.threadTs ? "thread" : "DM")
   return { ...parsed, terminal: false }
 }

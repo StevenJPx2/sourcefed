@@ -14,7 +14,7 @@ sourcefed monitor start --id ID [--target-kind KIND] [--target-id ID]
 sourcefed monitor remove --id ID --yes [--target-kind KIND] [--target-id ID]
 sourcefed monitor events [--target-kind KIND] [--target-id ID]
 sourcefed monitor follow [--target-kind KIND] [--target-id ID]
-sourcefed monitor ack --event-id ID[,ID...] [--target-kind KIND] [--target-id ID]
+sourcefed monitor ack --event-id ID [--event-id ID...] [--target-kind KIND] [--target-id ID]
 sourcefed monitor sources
 sourcefed skills [list]                     List bundled skills
 sourcefed skills get <name> [--full]        Output skill content (--full adds references)
