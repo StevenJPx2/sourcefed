@@ -33,12 +33,12 @@ OpenCode loads this package as both a server and a TUI plugin:
 
 ```json
 // ~/.config/opencode/opencode.jsonc
-{ "plugins": ["@fdcn/sourcefed@0.3.3"] }
+{ "plugins": ["@fdcn/sourcefed@0.3.4"] }
 ```
 
 ```json
 // ~/.config/opencode/cli.json
-{ "plugins": ["@fdcn/sourcefed@0.3.3"] }
+{ "plugins": ["@fdcn/sourcefed@0.3.4"] }
 ```
 
 The package exposes `./server`, `./tui`, `./opencode`, `./opencode/tui`, and `./pi` entrypoints for hosts that load them directly.
