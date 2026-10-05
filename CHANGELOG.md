@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v0.3.4
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.3...v0.3.4)
+
+### 🚀 Enhancements
+
+- **opencode:** Send the event's monitorID to chauffeur.gate ([30540e0](https://github.com/StevenJPx2/sourcefed/commit/30540e0))
+
+### 🩹 Fixes
+
+- **opencode:** Resubscribe monitored sessions after a restart ([6e3edc1](https://github.com/StevenJPx2/sourcefed/commit/6e3edc1))
+- Cache Slack's user list, name Slack errors, ack IDs with commas ([0bbae2e](https://github.com/StevenJPx2/sourcefed/commit/0bbae2e))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.3 ([1baebd4](https://github.com/StevenJPx2/sourcefed/commit/1baebd4))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.3
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.2...v0.3.3)
