@@ -1,6 +1,27 @@
 # Changelog
 
 
+## v0.3.5
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.4...v0.3.5)
+
+### 🩹 Fixes
+
+- **opencode:** Deliver monitors that other clients create after startup ([28f4464](https://github.com/StevenJPx2/sourcefed/commit/28f4464))
+- **opencode:** Inject the guidance unless a copy is already there ([6085571](https://github.com/StevenJPx2/sourcefed/commit/6085571))
+
+### 📖 Documentation
+
+- Agent guidance covers only using monitors ([fc669ce](https://github.com/StevenJPx2/sourcefed/commit/fc669ce))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.4 ([0aa2d4b](https://github.com/StevenJPx2/sourcefed/commit/0aa2d4b))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.4
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.3...v0.3.4)
