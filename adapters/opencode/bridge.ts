@@ -11,6 +11,9 @@ type Target = { kind: typeof TARGET_KIND; id: string }
 
 const GATE_TIMEOUT_MS = 3_000
 
+/** How often to pick up monitors that another client created for a session here. */
+const RESUBSCRIBE_MS = 15_000
+
 /**
  * Chauffeur's gate, declared here so sourcefed does not depend on Chauffeur.
  * When the Chauffeur plugin runs in this OpenCode process, it decides which
@@ -51,14 +54,21 @@ export class OpenCodeBridge {
   private readonly listeners = new Map<string, Promise<{ close(): Promise<void> }>>()
   private lastAttemptAt = 0
   private lastError: string | undefined
+  private timer: ReturnType<typeof setInterval> | undefined
 
   constructor(
     private readonly session: SessionDomain,
     private readonly rpc?: RpcDomain,
   ) {}
 
+  /**
+   * Chauffeur or the CLI can create a monitor for a session here at any time,
+   * without this bridge's tools, so check for new targets periodically too.
+   */
   async start(): Promise<void> {
     await this.ensureDaemon()
+    this.timer = setInterval(() => void this.refresh(), RESUBSCRIBE_MS)
+    this.timer.unref?.()
   }
 
   async ensureTarget(sessionID: string): Promise<void> {
@@ -90,10 +100,18 @@ export class OpenCodeBridge {
   }
 
   async close(): Promise<void> {
+    clearInterval(this.timer)
+    this.timer = undefined
     for (const pending of this.listeners.values()) await pending.then((listener) => listener.close(), () => undefined)
     this.listeners.clear()
     await this.daemon?.close()
     this.daemon = undefined
+  }
+
+  private async refresh(): Promise<void> {
+    if (!this.daemon) return this.ensureDaemon()
+
+    await this.resubscribe()
   }
 
   private async ensureDaemon(): Promise<void> {
@@ -125,6 +143,8 @@ export class OpenCodeBridge {
   }
 
   private async resubscribeTarget(sessionID: string): Promise<void> {
+    if (this.listeners.has(sessionID)) return
+
     const exists = await this.session.get({ sessionID }).then(() => true, () => false)
     if (!exists) return
     await this.ensureTarget(sessionID).catch((error: unknown) => {

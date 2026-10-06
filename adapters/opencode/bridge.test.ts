@@ -61,6 +61,30 @@ test("after a restart it resubscribes the sessions that still exist", async () =
   assert.deepEqual(subscribed, ["ses_live"])
 })
 
+test("a monitor another client creates later is picked up once on refresh", async () => {
+  const subscribed: string[] = []
+  const targets = [{ kind: "opencode-session", id: "ses_old" }]
+  const session = { get: async ({ sessionID }: { sessionID: string }) => ({ id: sessionID }) } as unknown as Bridge[0]
+  const daemon = {
+    request: async () => ({ targets }),
+    subscribe: async (target: { id: string }) => {
+      subscribed.push(target.id)
+      return { close: async () => {} }
+    },
+  }
+  const instance = new OpenCodeBridge(session)
+  const internals = instance as unknown as { daemon: typeof daemon; refresh(): Promise<void> }
+  internals.daemon = daemon
+
+  await internals.refresh()
+  // Chauffeur creates a monitor for another session after startup.
+  targets.push({ kind: "opencode-session", id: "ses_new" })
+  await internals.refresh()
+  await internals.refresh()
+
+  assert.deepEqual(subscribed, ["ses_old", "ses_new"])
+})
+
 test("an explicit deliver: false withholds the event", async () => {
   const { instance, delivered, route } = bridge(false)
 
