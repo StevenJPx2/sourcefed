@@ -8,6 +8,20 @@ merge conflicts, and more. No more copy pasting or reminding the agent to check 
 
 It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel (I used watch them all the time as a kid [RIP])
 
+## See it work
+
+![The agent creates a monitor for its PR; CI fails on GitHub; sourcefed delivers the failing log and the agent fixes, tests and pushes](docs/media/ci-failure.gif)
+
+![The agent creates a monitor for its PR; a reviewer comments; sourcefed delivers the comment and the agent makes the change and pushes](docs/media/review-comment.gif)
+
+About these clips:
+
+- OpenCode runs with only the sourcefed plugin: no Chauffeur, on a free model.
+- The repository is a throwaway private one. The failing commit and the review
+  comment were staged on purpose.
+- GitHub's CI, the comment and sourcefed's delivery are real. Waiting time is
+  sped up.
+
 ## Install
 
 ```sh
