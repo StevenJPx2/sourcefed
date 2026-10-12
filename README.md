@@ -1,5 +1,11 @@
 # SourceFed
 
+![The agent creates a monitor for its PR; CI fails on GitHub; sourcefed delivers the failing log and the agent fixes, tests and pushes](docs/media/ci-failure.gif)
+
+![The agent creates a monitor for its PR; a reviewer comments; sourcefed delivers the comment and the agent makes the change and pushes](docs/media/review-comment.gif)
+
+<sub>OpenCode with the sourcefed plugin, on a free model, in a throwaway private repository. The failing commit and the review comment are staged; GitHub's CI, the comment and sourcefed's delivery are real. Waiting time is sped up.</sub>
+
 SourceFed is a tool that solves one problem: how does your agent get notified of changes from different sources like Slack, Jira, or GitHub? This solves it. 
 Your agent can independently create monitors that keep up with updates from these sources.
 
@@ -7,20 +13,6 @@ For example, after the agent creates a PR, it can create a monitor that will be 
 merge conflicts, and more. No more copy pasting or reminding the agent to check the PR status.
 
 It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube channel (I used watch them all the time as a kid [RIP])
-
-## See it work
-
-![The agent creates a monitor for its PR; CI fails on GitHub; sourcefed delivers the failing log and the agent fixes, tests and pushes](docs/media/ci-failure.gif)
-
-![The agent creates a monitor for its PR; a reviewer comments; sourcefed delivers the comment and the agent makes the change and pushes](docs/media/review-comment.gif)
-
-About these clips:
-
-- OpenCode runs with only the sourcefed plugin: no Chauffeur, on a free model.
-- The repository is a throwaway private one. The failing commit and the review
-  comment were staged on purpose.
-- GitHub's CI, the comment and sourcefed's delivery are real. Waiting time is
-  sped up.
 
 ## Install
 
@@ -107,11 +99,10 @@ starts a webhook-only listener on `SOURCEFED_WEBHOOK_HOST`:`SOURCEFED_WEBHOOK_PO
 receive GitHub/Slack webhooks publicly while RPC and events stay on loopback; webhook
 signature (HMAC / Slack signing) authenticates requests, not the daemon token.
 
-In OpenCode, when the Chauffeur plugin is loaded, sourcefed asks its `chauffeur.gate` RPC
-before delivering each event, with the event's `monitorID` so Chauffeur can look up what the
-monitor watches, and skips events Chauffeur judges need no action (bot comments, approvals,
-status churn). Without Chauffeur, or if the gate fails or takes over 3 s, every event
-is delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `monitorID`,
+In OpenCode, a plugin can gate delivery: sourcefed asks it about each event, with the
+event's `monitorID`, and skips events it judges need no action (bot comments, approvals,
+status churn). With no gate, or if the gate fails or takes over 3 s, every event is
+delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `monitorID`,
 `kind`), so plugins can tell them from the user's own messages.
 
 ## MCP
