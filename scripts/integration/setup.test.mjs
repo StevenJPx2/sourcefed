@@ -32,8 +32,8 @@ try {
   }
 
   const cliConfig = JSON.parse(readFileSync(path.join(configHome, "opencode", "cli.json"), "utf8"))
-  if (cliConfig.theme.name !== "gruvbox" || !cliConfig.plugins.includes(`@fdcn/sourcefed@${manifest.version}`)) {
-    throw new Error(`unexpected OpenCode CLI config: ${JSON.stringify(cliConfig)}`)
+  if (JSON.stringify(cliConfig.plugins) !== JSON.stringify(["existing"])) {
+    throw new Error(`setup should leave the OpenCode CLI config alone: ${JSON.stringify(cliConfig)}`)
   }
 
   console.log("setup: uses the OpenCode v2 plugin add command — ok")

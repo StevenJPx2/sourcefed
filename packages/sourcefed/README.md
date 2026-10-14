@@ -29,15 +29,10 @@ import { createSourcefedMcp } from "@fdcn/sourcefed/mcp"
 
 ## Host plugins
 
-OpenCode loads this package as both a server and a TUI plugin:
+OpenCode loads this package as both a server and a TUI plugin from one entry:
 
 ```json
 // ~/.config/opencode/opencode.jsonc
-{ "plugins": ["@fdcn/sourcefed@0.3.5"] }
-```
-
-```json
-// ~/.config/opencode/cli.json
 { "plugins": ["@fdcn/sourcefed@0.3.5"] }
 ```
 
