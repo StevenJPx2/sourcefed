@@ -1,6 +1,28 @@
 # Changelog
 
 
+## v0.3.6
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.5...v0.3.6)
+
+### 🩹 Fixes
+
+- **opencode:** Hide the sidebar section when no monitor is active ([4db680e](https://github.com/StevenJPx2/sourcefed/commit/4db680e))
+- **setup:** Stop adding sourcefed to OpenCode's cli.json ([81870c6](https://github.com/StevenJPx2/sourcefed/commit/81870c6))
+
+### 📖 Documentation
+
+- Show standalone sourcefed delivering CI failures and review comments ([a390670](https://github.com/StevenJPx2/sourcefed/commit/a390670))
+- Lead the README with the demo ([07d855b](https://github.com/StevenJPx2/sourcefed/commit/07d855b))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.5 ([1d3632e](https://github.com/StevenJPx2/sourcefed/commit/1d3632e))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.5
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.4...v0.3.5)
