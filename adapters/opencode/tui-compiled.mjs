@@ -59,38 +59,43 @@ function Sidebar(props) {
   void refresh();
   const timer = setInterval(() => void refresh(), REFRESH_MS);
   onCleanup(() => clearInterval(timer));
-  return (() => {
-    var _el$ = _$createElement("box"), _el$2 = _$createElement("box"), _el$3 = _$createElement("text"), _el$5 = _$createElement("text"), _el$6 = _$createTextNode(` (`), _el$7 = _$createTextNode(`)`);
-    _$insertNode(_el$, _el$2);
-    _$setProp(_el$, "flexDirection", "column");
-    _$setProp(_el$, "width", "100%");
-    _$setProp(_el$, "marginTop", 1);
-    _$insertNode(_el$2, _el$3);
-    _$insertNode(_el$2, _el$5);
-    _$setProp(_el$2, "flexDirection", "row");
-    _$setProp(_el$2, "width", "100%");
-    _$insertNode(_el$3, _$createTextNode(`Sourcefed`));
-    _$insertNode(_el$5, _el$6);
-    _$insertNode(_el$5, _el$7);
-    _$insert(_el$5, () => active().length, _el$7);
-    _$insert(_el$, _$createComponent(MonitorRows, {
-      monitors: active,
-      get tone() {
-        return palette();
-      },
-      compact: true
-    }), null);
-    _$effect((_p$) => {
-      var _v$ = palette().accent, _v$2 = palette().textMuted;
-      _v$ !== _p$.e && (_p$.e = _$setProp(_el$3, "fg", _v$, _p$.e));
-      _v$2 !== _p$.t && (_p$.t = _$setProp(_el$5, "fg", _v$2, _p$.t));
-      return _p$;
-    }, {
-      e: void 0,
-      t: void 0
-    });
-    return _el$;
-  })();
+  return _$createComponent(Show, {
+    get when() {
+      return active().length > 0;
+    },
+    get children() {
+      var _el$ = _$createElement("box"), _el$2 = _$createElement("box"), _el$3 = _$createElement("text"), _el$5 = _$createElement("text"), _el$6 = _$createTextNode(` (`), _el$7 = _$createTextNode(`)`);
+      _$insertNode(_el$, _el$2);
+      _$setProp(_el$, "flexDirection", "column");
+      _$setProp(_el$, "width", "100%");
+      _$setProp(_el$, "marginTop", 1);
+      _$insertNode(_el$2, _el$3);
+      _$insertNode(_el$2, _el$5);
+      _$setProp(_el$2, "flexDirection", "row");
+      _$setProp(_el$2, "width", "100%");
+      _$insertNode(_el$3, _$createTextNode(`Sourcefed`));
+      _$insertNode(_el$5, _el$6);
+      _$insertNode(_el$5, _el$7);
+      _$insert(_el$5, () => active().length, _el$7);
+      _$insert(_el$, _$createComponent(MonitorRows, {
+        monitors: active,
+        get tone() {
+          return palette();
+        },
+        compact: true
+      }), null);
+      _$effect((_p$) => {
+        var _v$ = palette().accent, _v$2 = palette().textMuted;
+        _v$ !== _p$.e && (_p$.e = _$setProp(_el$3, "fg", _v$, _p$.e));
+        _v$2 !== _p$.t && (_p$.t = _$setProp(_el$5, "fg", _v$2, _p$.t));
+        return _p$;
+      }, {
+        e: void 0,
+        t: void 0
+      });
+      return _el$;
+    }
+  });
 }
 function MonitorRows(props) {
   const visible = createMemo(() => props.monitors().slice(0, 4));
@@ -98,41 +103,26 @@ function MonitorRows(props) {
     var _el$8 = _$createElement("box");
     _$setProp(_el$8, "flexDirection", "column");
     _$setProp(_el$8, "width", "100%");
-    _$insert(_el$8, _$createComponent(Show, {
-      get when() {
-        return visible().length > 0;
-      },
-      get fallback() {
-        return (() => {
-          var _el$1 = _$createElement("text");
-          _$insertNode(_el$1, _$createTextNode(`No active monitors`));
-          _$effect((_$p) => _$setProp(_el$1, "fg", props.tone.textMuted, _$p));
-          return _el$1;
-        })();
-      },
-      get children() {
-        return visible().map((monitor) => (() => {
-          var _el$11 = _$createElement("box"), _el$12 = _$createElement("text"), _el$13 = _$createElement("text"), _el$14 = _$createTextNode(` `);
-          _$insertNode(_el$11, _el$12);
-          _$insertNode(_el$11, _el$13);
-          _$setProp(_el$11, "flexDirection", "row");
-          _$setProp(_el$11, "width", "100%");
-          _$insert(_el$12, () => monitor.icon);
-          _$insertNode(_el$13, _el$14);
-          _$insert(_el$13, () => monitor.name, null);
-          _$effect((_p$) => {
-            var _v$3 = monitorTone(monitor, props.tone), _v$4 = props.tone.textMuted;
-            _v$3 !== _p$.e && (_p$.e = _$setProp(_el$12, "fg", _v$3, _p$.e));
-            _v$4 !== _p$.t && (_p$.t = _$setProp(_el$13, "fg", _v$4, _p$.t));
-            return _p$;
-          }, {
-            e: void 0,
-            t: void 0
-          });
-          return _el$11;
-        })());
-      }
-    }), null);
+    _$insert(_el$8, () => visible().map((monitor) => (() => {
+      var _el$1 = _$createElement("box"), _el$10 = _$createElement("text"), _el$11 = _$createElement("text"), _el$12 = _$createTextNode(` `);
+      _$insertNode(_el$1, _el$10);
+      _$insertNode(_el$1, _el$11);
+      _$setProp(_el$1, "flexDirection", "row");
+      _$setProp(_el$1, "width", "100%");
+      _$insert(_el$10, () => monitor.icon);
+      _$insertNode(_el$11, _el$12);
+      _$insert(_el$11, () => monitor.name, null);
+      _$effect((_p$) => {
+        var _v$3 = monitorTone(monitor, props.tone), _v$4 = props.tone.textMuted;
+        _v$3 !== _p$.e && (_p$.e = _$setProp(_el$10, "fg", _v$3, _p$.e));
+        _v$4 !== _p$.t && (_p$.t = _$setProp(_el$11, "fg", _v$4, _p$.t));
+        return _p$;
+      }, {
+        e: void 0,
+        t: void 0
+      });
+      return _el$1;
+    })()), null);
     _$insert(_el$8, _$createComponent(Show, {
       get when() {
         return _$memo(() => !!props.compact)() && visible().length < props.monitors().length;

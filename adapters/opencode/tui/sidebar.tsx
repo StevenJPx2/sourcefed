@@ -52,13 +52,15 @@ export function Sidebar(props: SidebarProps) {
   onCleanup(() => clearInterval(timer))
 
   return (
-    <box flexDirection="column" width="100%" marginTop={1}>
-      <box flexDirection="row" width="100%">
-        <text fg={palette().accent}>Sourcefed</text>
-        <text fg={palette().textMuted}> ({active().length})</text>
+    <Show when={active().length > 0}>
+      <box flexDirection="column" width="100%" marginTop={1}>
+        <box flexDirection="row" width="100%">
+          <text fg={palette().accent}>Sourcefed</text>
+          <text fg={palette().textMuted}> ({active().length})</text>
+        </box>
+        <MonitorRows monitors={active} tone={palette()} compact />
       </box>
-      <MonitorRows monitors={active} tone={palette()} compact />
-    </box>
+    </Show>
   )
 }
 
@@ -66,14 +68,12 @@ export function MonitorRows(props: { monitors: () => MonitorView[]; tone: Tone; 
   const visible = createMemo(() => props.monitors().slice(0, 4))
   return (
     <box flexDirection="column" width="100%">
-      <Show when={visible().length > 0} fallback={<text fg={props.tone.textMuted}>No active monitors</text>}>
-        {visible().map((monitor) => (
-          <box flexDirection="row" width="100%">
-            <text fg={monitorTone(monitor, props.tone)}>{monitor.icon}</text>
-            <text fg={props.tone.textMuted}> {monitor.name}</text>
-          </box>
-        ))}
-      </Show>
+      {visible().map((monitor) => (
+        <box flexDirection="row" width="100%">
+          <text fg={monitorTone(monitor, props.tone)}>{monitor.icon}</text>
+          <text fg={props.tone.textMuted}> {monitor.name}</text>
+        </box>
+      ))}
       <Show when={props.compact && visible().length < props.monitors().length}>
         <text fg={props.tone.textMuted}>Open Sourcefed for more</text>
       </Show>
