@@ -56,13 +56,13 @@ Manually, OpenCode takes one entry, and the CLI picks up the TUI plugin from it:
 
 ```json
 // ~/.config/opencode/opencode.jsonc
-{ "plugins": ["@fdcn/sourcefed@0.3.6"] }
+{ "plugins": ["@fdcn/sourcefed@0.3.7"] }
 ```
 
 Pi:
 
 ```sh
-pi install npm:@fdcn/sourcefed@0.3.6
+pi install npm:@fdcn/sourcefed@0.3.7
 ```
 
 Restart the host after installing. OpenCode resolves the server entrypoint from
