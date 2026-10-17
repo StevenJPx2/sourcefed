@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v0.3.7
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.6...v0.3.7)
+
+### 🩹 Fixes
+
+- **opencode:** Bound shared session subscriptions ([625ceca](https://github.com/StevenJPx2/sourcefed/commit/625ceca))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.6 ([d71a220](https://github.com/StevenJPx2/sourcefed/commit/d71a220))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.3.6
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.5...v0.3.6)
