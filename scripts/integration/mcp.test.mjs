@@ -1,10 +1,11 @@
 import path from "node:path"
-import { assert, assertEqual, removeDir, sleep, startJsonServer, startProcess, tempDir, waitForReachable } from "./harness.mjs"
+import { assert, assertEqual, freePort, removeDir, sleep, startJsonServer, startProcess, tempDir, waitForReachable } from "./harness.mjs"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 
 const CLI = path.resolve("node_modules/@sourcefed/cli/dist/index.js")
 const dir = await tempDir("sourcefed-it-mcp-")
-const url = "http://127.0.0.1:18921"
+const port = await freePort()
+const url = `http://127.0.0.1:${port}`
 
 let jiraCommentCalls = 0
 const jiraMock = await startJsonServer((request, body) => {
@@ -38,7 +39,7 @@ const env = {
   ATLASSIAN_EMAIL: "it@example.com",
   ATLASSIAN_API_KEY: "test-key",
 }
-const mcpProcess = startProcess(process.execPath, [CLI, "mcp", "--http", "--port", "18921"], { env, silent: true })
+const mcpProcess = startProcess(process.execPath, [CLI, "mcp", "--http", "--port", String(port)], { env, silent: true })
 try {
   await waitForReachable(url)
 

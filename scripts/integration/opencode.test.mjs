@@ -1,68 +1,93 @@
 import path from "node:path"
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs"
-import { spawnSync } from "node:child_process"
-import { assert, sleep, tempDir } from "./harness.mjs"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { spawn, spawnSync } from "node:child_process"
+import { pathToFileURL } from "node:url"
+import { assert, freePort, removeDir, sleep, startProcess, stopProcess, tempDir, waitForReachable } from "./harness.mjs"
 
-const opencodeBin = (() => {
-  try {
-    return spawnSync("which", ["opencode"], { encoding: "utf8" }).stdout.trim() || null
-  } catch {
-    return null
-  }
-})()
-
-if (!opencodeBin) {
-  console.log("SKIP opencode: no opencode binary on PATH")
-  process.exit(0)
-}
+const opencode = spawnSync("which", ["opencode"], { encoding: "utf8" }).stdout?.trim()
+if (!opencode) throw new Error("OpenCode release integration requires the real host on PATH")
 
 const dir = await tempDir("sourcefed-it-opencode-")
-const projectDir = path.join(dir, "project")
-const stateDir = path.join(dir, "state")
-mkdirSync(projectDir, { recursive: true })
-mkdirSync(stateDir, { recursive: true })
-
-const env = {
-  ...process.env,
-  SOURCEFED_STATE_DIR: stateDir,
-}
+const packageDir = path.resolve("node_modules/@fdcn/sourcefed")
+const project = path.join(dir, "project")
+const state = path.join(dir, "state")
+const config = path.join(dir, "config")
+const port = await freePort()
+const daemonPort = await freePort()
+const daemonURL = `http://127.0.0.1:${daemonPort}`
+// Never inherit provider credentials, shared service discovery or user configuration.
+const env = { PATH: process.env.PATH, HOME: path.join(dir, "home"), XDG_CONFIG_HOME: config,
+  XDG_DATA_HOME: path.join(dir, "data"), XDG_STATE_HOME: path.join(dir, "xdg-state"),
+  XDG_CACHE_HOME: path.join(dir, "cache"), TMPDIR: dir,
+  SOURCEFED_STATE_DIR: state, SOURCEFED_DAEMON_URL: daemonURL }
+const plugins = path.join(config, "opencode", "plugins")
+await Promise.all([project, state, plugins, env.HOME].map((directory) => mkdir(directory, { recursive: true })))
+await writeFile(path.join(config, "opencode", "opencode.json"), JSON.stringify({ plugins: ["*"] }))
+await writeFile(path.join(plugins, "sourcefed.js"), `export { default } from ${JSON.stringify(pathToFileURL(path.join(packageDir, "dist/opencode.js")).href)}`)
+await writeFile(path.join(plugins, "exercise.js"), toolExercise())
+const daemon = startProcess(process.execPath, [path.join(packageDir, "dist/cli.js"), "daemon", "--port", String(daemonPort)], { env, silent: true })
+let host
+let logs = ""
 
 try {
-  const result = spawnSync(opencodeBin, [
-    "run", "--print-logs",
-    "Use the monitor_create tool exactly once to create a Jira monitor for issue PROJ-1. Report the tool result.",
-  ], {
-    cwd: projectDir,
-    env,
-    encoding: "utf8",
-    timeout: 240_000,
-    stdio: ["ignore", "pipe", "pipe"],
-  })
-
-  const deadline = Date.now() + 20_000
-  let monitors = []
-  while (Date.now() < deadline) {
-    try {
-      monitors = JSON.parse(readFileSync(path.join(stateDir, "monitors.json"), "utf8")).monitors ?? []
-      if (monitors.length > 0) break
-    } catch {
-      // daemon not up yet
-    }
-    await sleep(500)
-  }
-
-  if (monitors.length === 0) {
-    const responseTail = (result.stdout + result.stderr).slice(-1200)
-    if (result.status !== 0) {
-      console.log(`SKIP opencode: headless run failed to complete (exit ${result.status}): ${responseTail}`)
-      process.exit(0)
-    }
-    console.log(`SKIP opencode: model did not call monitor_create; response: ${responseTail}`)
-    process.exit(0)
-  }
-
+  await waitForReachable(daemonURL)
+  host = spawn(opencode, ["serve", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: project, env, stdio: ["ignore", "pipe", "pipe"] })
+  host.stdout.on("data", (chunk) => { logs += chunk })
+  host.stderr.on("data", (chunk) => { logs += chunk })
+  await waitForHost()
+  const session = await api("/api/session", { location: { directory: project }, title: "SourceFed release integration" })
+  await api(`/api/session/${session.id}/command`, { name: "sourcefed-integration", text: "" })
+  const monitors = JSON.parse(await readFile(path.join(state, "monitors.json"), "utf8")).monitors
+  assert(monitors.length === 1, "the registered monitor tool creates exactly one monitor")
   assert(monitors[0].source.type === "jira" && monitors[0].source.issueKey === "PROJ-1", "monitor source matches")
-  console.log("opencode: headless run with the real host, plugin tool call, daemon state — ok")
+  assert(monitors[0].target.id === session.id, "the real host supplies the session target")
+  console.log("opencode: installed aggregate plugin, private real host, registered tool invocation and daemon state — ok")
+} catch (error) {
+  throw new Error(`${error.message}\n${logs.replace(/server password \S+/g, "server password [redacted]").slice(-3000)}`)
 } finally {
-  rmSync(dir, { recursive: true, force: true })
+  if (host) await stopProcess(host)
+  await daemon.stop()
+  await removeDir(dir)
+}
+
+function toolExercise() {
+  return `export default {
+    id: "sourcefed-integration",
+    async setup(ctx) {
+      await ctx.command.transform(editor => editor.add({
+        name: "sourcefed-integration",
+        async execute({ sessionID }) {
+          const tool = (await ctx.tool.list()).find(tool => tool.id === "monitor_create")
+          if (!tool) throw new Error("SourceFed monitor_create was not registered")
+          const result = await tool.execute({ name: "PROJ-1", sourceType: "jira", issueKey: "PROJ-1" }, { sessionID })
+          const output = JSON.parse(result.content)
+          if (!output.ok || !output.created) throw new Error("monitor_create failed: " + result.content)
+        }
+      }))
+    }
+  }`
+}
+
+async function api(route, body) {
+  const password = logs.match(/server password (\S+)/)?.[1]
+  if (!password) throw new Error("private host has not announced authentication")
+  const response = await fetch(`http://127.0.0.1:${port}${route}`, {
+    method: body ? "POST" : "GET",
+    headers: { "content-type": "application/json", authorization: `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}` },
+    ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(30_000),
+  })
+  const text = await response.text()
+  if (!response.ok) throw new Error(`OpenCode ${response.status}: ${text}`)
+  const result = text ? JSON.parse(text) : undefined
+  return result?.data ?? result
+}
+
+async function waitForHost() {
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    if (host.exitCode !== null) throw new Error(`private host exited: ${host.exitCode}`)
+    if (await api("/api/info").then(() => true, () => false)) return
+    await sleep(100)
+  }
+  throw new Error("private OpenCode host did not become ready")
 }

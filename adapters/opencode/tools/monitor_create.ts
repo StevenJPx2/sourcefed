@@ -1,8 +1,9 @@
 import { SOURCE_TYPES } from "@sourcefed/daemon"
 import type { ToolContext } from "@opencode/plugin/promise/tool"
 import { callMonitorTool } from "../tool-result.ts"
+import type { OpenCodeBridge } from "../bridge.ts"
 
-const definition = {
+export default (bridge: OpenCodeBridge) => ({
   name: "monitor_create",
   description:
     "Create a detect-only monitor that watches a Jira issue, GitHub PR, Slack thread, or Slack DM and routes NEW events into the current session. Slack monitors only read and notify; they never reply. GitHub and Slack use webhooks when configured and polling otherwise; Jira uses polling.",
@@ -23,8 +24,6 @@ const definition = {
     additionalProperties: false,
   },
   async execute(input: unknown, context: ToolContext) {
-    return { content: await callMonitorTool("monitor_create", (input ?? {}) as Record<string, unknown>, context.sessionID) }
+    return { content: await callMonitorTool(bridge, "monitor_create", (input ?? {}) as Record<string, unknown>, context.sessionID) }
   },
-}
-
-export default definition
+})

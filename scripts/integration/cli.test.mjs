@@ -1,12 +1,13 @@
 import path from "node:path"
 import { readFileSync } from "node:fs"
-import { assert, assertEqual, removeDir, run, sleep, startProcess, tempDir, waitForReachable } from "./harness.mjs"
+import { assert, assertEqual, freePort, removeDir, run, sleep, startProcess, tempDir, waitForReachable } from "./harness.mjs"
 
 const CLI = path.resolve("node_modules/@sourcefed/cli/dist/index.js")
 const dir = await tempDir("sourcefed-it-cli-")
-const url = "http://127.0.0.1:18920"
+const port = await freePort()
+const url = `http://127.0.0.1:${port}`
 const env = { SOURCEFED_STATE_DIR: dir, SOURCEFED_DAEMON_URL: url }
-const daemonProcess = startProcess(process.execPath, [CLI, "daemon", "--port", "18920"], { env, silent: true })
+const daemonProcess = startProcess(process.execPath, [CLI, "daemon", "--port", String(port)], { env, silent: true })
 try {
   await waitForReachable(url)
 
@@ -29,7 +30,7 @@ try {
   assert(guide.includes("# Sourcefed core"), "skills get serves content")
 
   await daemonProcess.stop()
-  const restarted = startProcess(process.execPath, [CLI, "daemon", "--port", "18920"], { env, silent: true })
+  const restarted = startProcess(process.execPath, [CLI, "daemon", "--port", String(port)], { env, silent: true })
   await waitForReachable(url)
   await restarted.stop()
   console.log("cli: installed binary daemon + monitor CRUD + skills + lock release — ok")

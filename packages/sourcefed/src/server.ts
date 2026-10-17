@@ -14,12 +14,17 @@ export default Plugin.define({
   async setup(ctx) {
     const cleanup = await setupSourcefed(ctx)
 
-    // Inject Sourcefed guidance into the agent's system context once per request.
-    await ctx.session.hook("context", (event) => {
-      if (!event.system.some((part) => part.type === "text" && part.text.includes(heading))) {
-        event.system.push({ type: "text", text: guidance })
-      }
-    })
+    try {
+      // Inject Sourcefed guidance into the agent's system context once per request.
+      await ctx.session.hook("context", (event) => {
+        if (!event.system.some((part) => part.type === "text" && part.text.includes(heading))) {
+          event.system.push({ type: "text", text: guidance })
+        }
+      })
+    } catch (error) {
+      await cleanup?.()
+      throw error
+    }
 
     return cleanup
   },

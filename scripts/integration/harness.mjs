@@ -1,6 +1,8 @@
 import { spawn, spawnSync } from "node:child_process"
 import { mkdtemp, rm } from "node:fs/promises"
 import { createServer } from "node:http"
+import { createServer as createPortReservation } from "node:net"
+import { once } from "node:events"
 import os from "node:os"
 import path from "node:path"
 
@@ -24,6 +26,18 @@ export async function tempDir(prefix) {
 
 export async function removeDir(dir) {
   await rm(dir, { recursive: true, force: true })
+}
+
+export async function freePort() {
+  const server = createPortReservation()
+  await new Promise((resolve, reject) => {
+    server.once("error", reject)
+    server.listen(0, "127.0.0.1", resolve)
+  })
+  const address = server.address()
+  await new Promise((resolve) => server.close(resolve))
+  if (!address || typeof address === "string") throw new Error("no test port allocated")
+  return address.port
 }
 
 export async function waitForReachable(url, timeoutMs = 20_000) {
@@ -53,16 +67,34 @@ export function startProcess(command, args, options = {}) {
   let stopped = false
   return {
     proc,
-    stop: () => new Promise((resolve) => {
-      if (stopped || proc.exitCode !== null) {
-        resolve()
-        return
-      }
+    stop: async () => {
+      if (stopped) return
       stopped = true
-      proc.once("exit", () => resolve())
-      proc.kill()
-    }),
+      await stopProcess(proc)
+    },
   }
+}
+
+export async function stopProcess(proc) {
+  if (proc.exitCode !== null || proc.signalCode !== null) return
+  const exited = once(proc, "exit")
+  proc.kill()
+  let timer
+  try {
+    await Promise.race([exited, new Promise((resolve) => { timer = setTimeout(resolve, 5_000) })])
+    if (proc.exitCode === null && proc.signalCode === null) { proc.kill("SIGKILL"); await exited }
+  } finally { clearTimeout(timer) }
+}
+
+export async function startHostDaemon(env) {
+  const port = await freePort()
+  const url = `http://127.0.0.1:${port}`
+  const cli = path.resolve("node_modules/@fdcn/sourcefed/dist/cli.js")
+  const daemon = startProcess(process.execPath, [cli, "daemon", "--port", String(port)], { env: { ...env, SOURCEFED_DAEMON_URL: url }, silent: true })
+  try {
+    await waitForReachable(url)
+    return { url, stop: daemon.stop }
+  } catch (error) { await daemon.stop(); throw error }
 }
 
 export async function startJsonServer(handler) {

@@ -1,7 +1,8 @@
 import type { ToolContext } from "@opencode/plugin/promise/tool"
 import { callMonitorTool } from "../tool-result.ts"
+import type { OpenCodeBridge } from "../bridge.ts"
 
-const definition = {
+export default (bridge: OpenCodeBridge) => ({
   name: "monitor_start",
   description: "Start (re-enable) a stopped monitor created by the current session.",
   input: {
@@ -14,8 +15,6 @@ const definition = {
   },
   async execute(input: unknown, context: ToolContext) {
     const args = (input ?? {}) as { id?: string }
-    return { content: await callMonitorTool("monitor_start", { id: args.id }, context.sessionID) }
+    return { content: await callMonitorTool(bridge, "monitor_start", { id: args.id }, context.sessionID) }
   },
-}
-
-export default definition
+})

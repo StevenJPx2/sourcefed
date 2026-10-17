@@ -12,7 +12,7 @@ export type DaemonClientOptions = {
 
 export interface DaemonClient {
   request(method: string, params?: Record<string, unknown>): Promise<unknown>
-  subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>): Promise<{ close(): Promise<void> }>
+  subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>, options?: { signal?: AbortSignal }): Promise<{ close(): Promise<void> }>
   close(): Promise<void>
 }
 

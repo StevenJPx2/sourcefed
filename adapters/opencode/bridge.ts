@@ -3,16 +3,17 @@ import { fileURLToPath } from "node:url"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
 import { eventToText, type QueuedMonitorEvent } from "@sourcefed/core"
 import { type Plugin, Rpc } from "@opencode/plugin"
+import { OpenCodeSubscriptions, type SessionLocation } from "./subscriptions.ts"
 
 type SessionDomain = Plugin.Context["session"]
-type RpcDomain = Plugin.Context["rpc"]
+// The bridge calls only this contract; registration and event APIs belong to the host.
+type RpcDomain = (definition: typeof ChauffeurGate) => {
+  gate(input: unknown, options: { signal: AbortSignal }): Promise<unknown>
+}
 const TARGET_KIND = "opencode-session"
 type Target = { kind: typeof TARGET_KIND; id: string }
 
 const GATE_TIMEOUT_MS = 3_000
-
-/** How often to pick up monitors that another client created for a session here. */
-const RESUBSCRIBE_MS = 15_000
 
 /**
  * Chauffeur's gate, declared here so sourcefed does not depend on Chauffeur.
@@ -47,18 +48,25 @@ const ChauffeurGate = Rpc.define({
   events: {},
 })
 
-let activeBridge: OpenCodeBridge | undefined
+const HUB = Symbol.for("sourcefed.opencode.subscriptions.v1")
+// Plugin reloads can evaluate another copy of this module in the same process.
+const shared = globalThis as typeof globalThis & { [HUB]?: OpenCodeSubscriptions }
+
+function subscriptions(): OpenCodeSubscriptions {
+  if (!shared[HUB] || shared[HUB].closed) shared[HUB] = new OpenCodeSubscriptions(connectDaemon)
+  return shared[HUB]
+}
 
 export class OpenCodeBridge {
-  private daemon?: DaemonClient
-  private readonly listeners = new Map<string, Promise<{ close(): Promise<void> }>>()
-  private lastAttemptAt = 0
-  private lastError: string | undefined
-  private timer: ReturnType<typeof setInterval> | undefined
+  private started: Promise<void> | undefined
+  private closed = false
+  private closing: Promise<void> | undefined
 
   constructor(
-    private readonly session: SessionDomain,
-    private readonly rpc?: RpcDomain,
+    private readonly session: Pick<SessionDomain, "get" | "synthetic">,
+    private readonly rpc: RpcDomain | undefined,
+    readonly location: SessionLocation,
+    private readonly hub = subscriptions(),
   ) {}
 
   /**
@@ -66,96 +74,43 @@ export class OpenCodeBridge {
    * without this bridge's tools, so check for new targets periodically too.
    */
   async start(): Promise<void> {
-    await this.ensureDaemon()
-    this.timer = setInterval(() => void this.refresh(), RESUBSCRIBE_MS)
-    this.timer.unref?.()
-  }
-
-  async ensureTarget(sessionID: string): Promise<void> {
-    await this.ensureDaemon()
-    const existing = this.listeners.get(sessionID)
-    if (existing) {
-      await existing
-      return
-    }
-    const pending = this.daemon!.subscribe(this.target(sessionID), async (events) => {
-      await this.routeEvents(events)
-    })
-    this.listeners.set(sessionID, pending)
-    try {
-      await pending
-    } catch (error) {
-      this.listeners.delete(sessionID)
-      throw error
-    }
+    if (this.closed) throw new Error("sourcefed bridge is closed")
+    this.started ??= this.hub.add(this)
+    await this.started
   }
 
   async callTool(name: string, arguments_: Record<string, unknown>, sessionID: string): Promise<unknown> {
-    await this.ensureDaemon()
-    if (!this.daemon) {
-      return { ok: false, error: `sourcefed daemon unavailable: ${this.lastError ?? "not started"}` }
-    }
-    await this.ensureTarget(sessionID)
-    return this.daemon.request(name.replace(/_/g, "."), { ...arguments_, target: this.target(sessionID) })
-  }
-
-  async close(): Promise<void> {
-    clearInterval(this.timer)
-    this.timer = undefined
-    for (const pending of this.listeners.values()) await pending.then((listener) => listener.close(), () => undefined)
-    this.listeners.clear()
-    await this.daemon?.close()
-    this.daemon = undefined
-  }
-
-  private async refresh(): Promise<void> {
-    if (!this.daemon) return this.ensureDaemon()
-
-    await this.resubscribe()
-  }
-
-  private async ensureDaemon(): Promise<void> {
-    if (this.daemon) return
-    if (Date.now() - this.lastAttemptAt < 15_000) return
-    this.lastAttemptAt = Date.now()
     try {
-      this.daemon = await connectDaemon()
-      void this.resubscribe()
+      await this.start()
+      const method = name.replace(/_/g, ".")
+      const result = await this.hub.request(method, { ...arguments_, target: this.target(sessionID) })
+      // Only mutations can change subscription demand. Reads never open streams.
+      if (["monitor.create", "monitor.start", "monitor.stop", "monitor.remove"].includes(method)) await this.hub.refresh()
+      return result
     } catch (error) {
-      this.lastError = error instanceof Error ? error.message : String(error)
-      console.error(`[sourcefed] daemon unavailable: ${this.lastError}`)
+      return { ok: false, error: String(error) }
     }
   }
 
-  /**
-   * Monitors outlive this process, so after a restart nothing listens for their
-   * sessions until something subscribes. Subscribe every session that has an
-   * enabled monitor and still exists here; a deleted session is skipped, since
-   * delivering to it would fail and retry forever.
-   */
-  private async resubscribe(): Promise<void> {
-    try {
-      const { targets } = (await this.daemon!.request("monitor.targets", { kind: TARGET_KIND })) as { targets: Target[] }
-      await Promise.all(targets.map((target) => this.resubscribeTarget(target.id)))
-    } catch (error) {
-      console.error(`[sourcefed] resubscribe failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
+  close(): Promise<void> {
+    if (this.closing) return this.closing
+    this.closed = true
+    this.closing = this.started ? this.hub.remove(this) : Promise.resolve()
+    return this.closing
   }
 
-  private async resubscribeTarget(sessionID: string): Promise<void> {
-    if (this.listeners.has(sessionID)) return
+  async refresh(): Promise<void> {
+    if (!this.closed) await this.hub.refresh()
+  }
 
-    const exists = await this.session.get({ sessionID }).then(() => true, () => false)
-    if (!exists) return
-    await this.ensureTarget(sessionID).catch((error: unknown) => {
-      console.error(`[sourcefed] subscribe ${sessionID} failed: ${error instanceof Error ? error.message : String(error)}`)
-    })
+  getSession(sessionID: string, signal: AbortSignal) {
+    return this.session.get({ sessionID }, { signal: AbortSignal.any([signal, AbortSignal.timeout(3_000)]) })
   }
 
   // Every event arrives as a synthetic message, never as a user prompt, so it is
   // not mistaken for the user's own words. Actionable events resume an idle
   // agent; the rest wait in the transcript for the next turn.
-  private async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
+  async routeEvents(events: QueuedMonitorEvent[]): Promise<void> {
     for (const queued of events) {
       const sessionID = queued.target.id
 
@@ -196,7 +151,7 @@ export class OpenCodeBridge {
         { signal: AbortSignal.timeout(GATE_TIMEOUT_MS) },
       )
 
-      return (reply as { deliver?: unknown }).deliver !== false
+      return !(reply && typeof reply === "object" && "deliver" in reply && reply.deliver === false)
     } catch {
       return true
     }
@@ -223,13 +178,4 @@ function cliEntry(): string {
   const bundled = fileURLToPath(new URL("./cli.js", import.meta.url))
   if (existsSync(bundled)) return bundled
   return fileURLToPath(import.meta.resolve("@sourcefed/cli"))
-}
-
-export function setOpenCodeBridge(bridge: OpenCodeBridge): void {
-  activeBridge = bridge
-}
-
-export function getOpenCodeBridge(): OpenCodeBridge {
-  if (!activeBridge) throw new Error("Sourcefed OpenCode bridge is not initialized")
-  return activeBridge
 }

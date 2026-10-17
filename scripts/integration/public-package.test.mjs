@@ -1,9 +1,10 @@
 import path from "node:path"
 import { readdirSync, readFileSync } from "node:fs"
-import { assert, assertEqual, removeDir, run, sleep, startProcess, tempDir, waitForReachable } from "./harness.mjs"
+import { assert, assertEqual, freePort, removeDir, run, sleep, startProcess, tempDir, waitForReachable } from "./harness.mjs"
 
 const dir = await tempDir("sourcefed-it-public-")
-const url = "http://127.0.0.1:18921"
+const port = await freePort()
+const url = `http://127.0.0.1:${port}`
 const env = { SOURCEFED_STATE_DIR: dir, SOURCEFED_DAEMON_URL: url }
 const bin = path.resolve("node_modules/.bin/sourcefed")
 
@@ -22,7 +23,7 @@ try {
   const skills = run(bin, ["skills", "list"], { env })
   assert(skills.includes("core:"), "aggregate CLI serves skills")
 
-  const daemonProcess = startProcess(bin, ["daemon", "--port", "18921"], { env, silent: true })
+  const daemonProcess = startProcess(bin, ["daemon", "--port", String(port)], { env, silent: true })
   try {
     await waitForReachable(url)
     const sources = run(bin, ["monitor", "sources"], { env })

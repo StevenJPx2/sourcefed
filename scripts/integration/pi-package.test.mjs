@@ -1,7 +1,7 @@
 import path from "node:path"
 import { spawn } from "node:child_process"
 import { spawnSync } from "node:child_process"
-import { assert, removeDir, sleep, tempDir } from "./harness.mjs"
+import { assert, removeDir, sleep, startHostDaemon, stopProcess, tempDir } from "./harness.mjs"
 
 const piBin = (() => {
   try {
@@ -27,6 +27,8 @@ const env = {
   PI_CODING_AGENT_DIR: agentDir,
   SOURCEFED_STATE_DIR: stateDir,
 }
+const daemon = await startHostDaemon(env)
+env.SOURCEFED_DAEMON_URL = daemon.url
 
 const proc = spawn(piBin, [
   "--mode", "rpc",
@@ -44,8 +46,7 @@ proc.on("exit", (code) => { exited = true })
 try {
   await sleep(3_000)
   if (exited) {
-    console.log(`SKIP pi-package: rpc exited early (${proc.exitCode}): ${output.slice(-400)}`)
-    process.exit(0)
+    throw new Error(`pi-package: rpc exited early (${proc.exitCode}): ${output.slice(-400)}`)
   }
 
   proc.stdin.write(JSON.stringify({ id: "cmd-1", type: "prompt", message: "/sourcefed" }) + "\n")
@@ -65,14 +66,14 @@ try {
   }
 
   if (!matched) {
-    console.log(`SKIP pi-package: no sourcefed output in RPC stream: ${output.slice(-500)}`)
-    process.exit(0)
+    throw new Error(`pi-package: no sourcefed output in RPC stream: ${output.slice(-500)}`)
   }
 
   const statusLine = output.split("\n").find((line) => line.includes("extension_ui_request") && line.includes("setStatus") && line.includes("sourcefed"))
   assert(statusLine, "the aggregate pi extension initialized and reported its status through the RPC stream")
   console.log("pi-package: aggregate dist extension, RPC mode, status polling — ok")
 } finally {
-  proc.kill()
+  await stopProcess(proc)
+  await daemon.stop()
   await removeDir(dir).catch(() => {})
 }

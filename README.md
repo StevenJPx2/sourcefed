@@ -100,6 +100,12 @@ status churn). With no gate, or if the gate fails or takes over 3 s, every event
 delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `monitorID`,
 `kind`), so plugins can tell them from the user's own messages.
 
+OpenCode plugin instances share one process-wide subscription hub: at most one SSE
+stream per enabled, owned session target, regardless of how many project locations
+are loaded. Stopped monitors, deleted sessions and unloaded owners release streams;
+external CLI/Chauffeur changes are reconciled every 15 seconds. See
+[subscription lifecycle](docs/subscription-lifecycle.md) for ownership and cleanup rules.
+
 ## MCP
 
 ```sh
@@ -242,9 +248,10 @@ consumer project, and runs real-life scenarios against the installed artifacts:
 - **provider-\*** — each provider polling against mocked upstreams through a live daemon tick
 - **public-package** — the aggregate tarball alone: subpath imports, the npm-created bin,
   daemon + RPC, no TypeScript in `dist`
-- **opencode / pi adapters** — run in their real hosts when available: headless `opencode
-  run` with the plugin installed and a temp state dir, and Pi RPC mode loading the
-  extension directly (each skips when its host is unavailable)
+- **opencode / pi adapters** — the installed aggregate plugin in a private OpenCode
+  server invokes its registered monitor tool through a deterministic test command,
+  without model credentials; Pi RPC mode loads the extension directly. Both use
+  owned test daemons. OpenCode is required; Pi skips when its host is unavailable.
 
 Releases follow [docs/e2e-release-plan.md](./docs/e2e-release-plan.md): the exact tarball
 that publishes is tested with no private workspace packages installed, every scenario must
