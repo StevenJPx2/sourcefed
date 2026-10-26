@@ -1,0 +1,4 @@
+{
+  "name": "sourcefed",
+  "description": "Helps agents monitor feeds like GitHub PR comments, Slack threads, Jira tickets, etc."
+}
