@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url"
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const VERSION = process.argv[2] ?? JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version
 const DOTFILES = process.env.DOTFILES_DIR ?? path.join(os.homedir(), "Documents/Projects/dotfiles")
-const TAP = process.env.TAP_DIR ?? path.join(os.homedir(), "Documents/Projects/homebrew-sourcefed")
+const TAP = process.env.TAP_DIR ?? path.join(os.homedir(), "Documents/Projects/taps")
 
 // 1. dotfiles: OpenCode server and CLI plugin pins
 if (existsSync(path.join(DOTFILES, "configs/opencode/opencode.jsonc"))) {
