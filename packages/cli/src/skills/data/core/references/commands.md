@@ -26,13 +26,17 @@ sourcefed skills path [name]                Print skill directory path
 
 ```text
 --name NAME           Human-readable monitor name (defaults to the source type)
---source-type TYPE    jira | github | slack
+--source-type TYPE    jira | github | slack | yab
 --issue-key KEY       Jira issue key (jira)
 --repo OWNER/NAME     GitHub repository (github)
 --pr-number N         GitHub PR number (github)
 --channel-id ID       Slack channel or DM ID; a D… ID alone monitors the whole DM
 --thread-ts TS        Slack parent message timestamp; omit for a whole-DM monitor
 --thread-url URL      Slack thread URL (slack)
+--url URL             Atom, RSS or JSON feed URL read through Yab (yab)
+--space NAME          Yab space whose sign-ins to use (yab)
+--match REGEX         Only deliver entries matching this case-insensitive regex (yab)
+--exclude REGEX       Skip entries matching this case-insensitive regex (yab)
 --poll-interval-sec N Poll interval in seconds (min 15)
 --target-kind KIND    Target kind for ownership scoping (default: cli)
 --target-id ID        Target id for ownership scoping (default: hostname)
@@ -54,6 +58,7 @@ SOURCEFED_JIRA_TERMINAL_STATUS  Jira status that auto-removes monitors
 GH_TOKEN / GITHUB_TOKEN         GitHub token for direct API polling
 SOURCEFED_GITHUB_WEBHOOK_SECRET GitHub webhook secret (enables webhooks)
 SOURCEFED_SLACK_SIGNING_SECRET  Slack signing secret (enables webhooks)
+SOURCEFED_YAB_COMMAND           Yab binary for yab monitors (default /Applications/yab.app/Contents/MacOS/yab)
 SOURCEFED_SKILLS_DIR            Override the bundled skills directory
 ```
 

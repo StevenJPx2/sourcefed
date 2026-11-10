@@ -1,12 +1,12 @@
 ---
 name: core
-description: Core sourcefed usage guide. Read this before creating monitors. Covers monitor creation per source (Jira issue, GitHub PR, Slack thread), event delivery and acknowledgement semantics, daemon modes, CLI usage, and troubleshooting. Use when the user asks to watch or monitor a Jira ticket, GitHub PR, Slack thread, or when sourcefed monitor events arrive in the session.
+description: Core sourcefed usage guide. Read this before creating monitors. Covers monitor creation per source (Jira issue, GitHub PR, Slack thread, Yab feed), event delivery and acknowledgement semantics, daemon modes, CLI usage, and troubleshooting. Use when the user asks to watch or monitor a Jira ticket, GitHub PR, Slack thread, a feed or inbox they are signed in to in Yab, or when sourcefed monitor events arrive in the session.
 ---
 
 # Sourcefed core
 
-Sourcefed lets you create **monitors** that watch a Jira issue, GitHub PR, or
-Slack thread or direct-message conversation and route NEW events into the session you're currently working in,
+Sourcefed lets you create **monitors** that watch a Jira issue, GitHub PR,
+Slack thread or direct-message conversation, or a feed read through Yab, and route NEW events into the session you're currently working in,
 so you can react to them as they happen.
 
 Every monitor is detect-only: it routes events into the session and never
@@ -21,6 +21,7 @@ affect that session's monitors.
 - **GitHub PR**: `monitor_create({ name: "PR #42", sourceType: "github", repo: "owner/repo", prNumber: 42 })`
 - **Slack thread**: `monitor_create({ name: "thread", sourceType: "slack", threadUrl: "<thread-url>" })`
 - **Whole Slack DM**: `monitor_create({ name: "DM with Alex", sourceType: "slack", channelId: "D0123456789" })`
+- **Yab feed**: `monitor_create({ name: "inbox", sourceType: "yab", url: "https://mail.google.com/mail/u/0/feed/atom", space: "Personal", match: "interview|offer", exclude: "newsletter" })`
 
 You will be notified of:
 
@@ -30,9 +31,13 @@ You will be notified of:
 - **Slack thread**: new replies in the thread.
 - **Slack DM**: new top-level messages in the DM. Slack monitors are always detect-only
   and never reply.
+- **Yab feed**: each new entry of an Atom, RSS or JSON feed, read through the user's Yab
+  browser with their sign-ins (so private feeds like Gmail's unread-inbox feed work).
+  `space` picks the Yab space; `match`/`exclude` are case-insensitive regexes over the
+  entry's title, summary and author. Yab must be running.
 
 GitHub and Slack use webhook delivery when configured and fall back to polling
-when unavailable. Jira always uses polling. You can lower `pollIntervalSec`
+when unavailable. Jira and Yab always use polling. You can lower `pollIntervalSec`
 (min 15) for time-sensitive work, but prefer the default to avoid hammering
 APIs.
 

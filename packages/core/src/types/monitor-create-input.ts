@@ -5,4 +5,8 @@ export type MonitorCreateInput = {
   channelId?: string
   threadTs?: string
   threadUrl?: string
+  url?: string
+  space?: string
+  match?: string
+  exclude?: string
 }

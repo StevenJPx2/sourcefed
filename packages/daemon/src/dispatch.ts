@@ -48,7 +48,7 @@ function createCreateInput(params: Record<string, unknown>): DaemonCreateInput {
     name: params.name,
     sourceType: params.sourceType,
   }
-  for (const key of ["issueKey", "repo", "channelId", "threadTs", "threadUrl"] as const) {
+  for (const key of ["issueKey", "repo", "channelId", "threadTs", "threadUrl", "url", "space", "match", "exclude"] as const) {
     if (typeof params[key] === "string") input[key] = params[key]
   }
   if (typeof params.prNumber === "number") input.prNumber = params.prNumber

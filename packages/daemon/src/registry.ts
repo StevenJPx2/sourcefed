@@ -2,11 +2,13 @@ import type { Monitor, MonitorCreateInput, MonitorSource, SourceInput } from "@s
 import { GithubMonitor } from "@sourcefed/provider-github"
 import { JiraMonitor } from "@sourcefed/provider-jira"
 import { SlackMonitor } from "@sourcefed/provider-slack"
+import { YabMonitor } from "@sourcefed/provider-yab"
 
 export const SOURCE_MAP = {
   jira: new JiraMonitor(),
   github: new GithubMonitor(),
   slack: new SlackMonitor(),
+  yab: new YabMonitor(),
 }
 
 export const SOURCE_TYPES = Object.keys(SOURCE_MAP) as [string, ...string[]]

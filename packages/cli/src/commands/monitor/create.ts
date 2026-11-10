@@ -19,6 +19,10 @@ export async function create(context: MonitorContext): Promise<void> {
     "channel-id": "channelId",
     "thread-ts": "threadTs",
     "thread-url": "threadUrl",
+    url: "url",
+    space: "space",
+    match: "match",
+    exclude: "exclude",
   }
   for (const key of Object.keys(keyMap)) {
     const value = flag(context.args, key)
