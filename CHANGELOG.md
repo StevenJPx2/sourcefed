@@ -1,6 +1,24 @@
 # Changelog
 
 
+## v0.3.8
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.7...v0.3.8)
+
+### 🚀 Enhancements
+
+- **yab:** Add Yab feed provider ([7546640](https://github.com/StevenJPx2/sourcefed/commit/7546640))
+- **ui:** Stop, start, and delete monitors from the /sourcefed dialog ([bf28080](https://github.com/StevenJPx2/sourcefed/commit/bf28080))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.3.7 ([7144728](https://github.com/StevenJPx2/sourcefed/commit/7144728))
+- Describe the project for stevenjohn.co's resume ([a0558eb](https://github.com/StevenJPx2/sourcefed/commit/a0558eb))
+
+### ❤️ Contributors
+
+- Steven John ([@StevenJPx2](https://github.com/StevenJPx2))
+
 ## v0.3.7
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.6...v0.3.7)
