@@ -5,7 +5,8 @@ import { Type } from "typebox"
 import { eventToText, type QueuedMonitorEvent } from "@sourcefed/core"
 import type { LogEntryView, MonitorView } from "@sourcefed/daemon"
 import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
-import { logLines, monitorLines, showSourcefedDialog } from "./dialog.ts"
+import { logLines, showSourcefedDialog } from "./dialog.ts"
+import { MonitorManager, type MonitorAction } from "./monitors-dialog.ts"
 
 const STATUS_REFRESH_MS = 3_000
 
@@ -99,12 +100,23 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   })
 
   pi.registerCommand("sourcefed", {
-    description: "List Sourcefed monitors for the current Pi session",
+    description: "Show, stop, start, or delete Sourcefed monitors for the current Pi session",
     handler: async (_args, ctx) => {
-      const result = (await call(ctx, "monitor_list", {})) as { monitors?: MonitorView[] }
-      const monitors = Array.isArray(result?.monitors) ? result.monitors : []
-      await ctx.ui.custom((tui, theme, _keybindings, done) =>
-        showSourcefedDialog(tui, theme, done, `Sourcefed monitors (${monitors.length})`, monitorLines(monitors, theme)),
+      const monitors = await listMonitors(ctx)
+      const run = async (action: MonitorAction, id: string): Promise<MonitorView[]> => {
+        const result = (await call(ctx, `monitor_${action}`, { id })) as { ok?: boolean; error?: string }
+        if (result?.ok === false) throw new Error(result.error ?? `monitor ${action} failed`)
+        void refreshStatus()
+        return listMonitors(ctx)
+      }
+      await ctx.ui.custom<null>((tui, theme, keybindings, done) =>
+        new MonitorManager(monitors, {
+          theme,
+          keys: keybindings,
+          run,
+          requestRender: () => tui.requestRender(),
+          close: () => done(null),
+        }),
       )
     },
   })
@@ -134,9 +146,13 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
     }
   }
 
-  async function updateStatus(ctx: ExtensionContext): Promise<void> {
+  async function listMonitors(ctx: ExtensionContext): Promise<MonitorView[]> {
     const result = (await call(ctx, "monitor_list", {})) as { monitors?: MonitorView[] }
-    const monitors = Array.isArray(result?.monitors) ? result.monitors : []
+    return Array.isArray(result?.monitors) ? result.monitors : []
+  }
+
+  async function updateStatus(ctx: ExtensionContext): Promise<void> {
+    const monitors = await listMonitors(ctx)
     // Only active monitors count; stopped/removed ones drop out entirely.
     const active = monitors.filter((monitor) => monitor.enabled)
     if (active.length === 0) {
