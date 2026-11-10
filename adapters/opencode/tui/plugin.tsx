@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 
-import { createMemo, Show } from "solid-js"
+import { createMemo, createSignal, Show } from "solid-js"
 import type { Plugin } from "@opencode/plugin/tui"
 import { connectDaemonClient, defaultDaemonUrl, type DaemonClient, type LogEntryView, type MonitorView } from "@sourcefed/daemon"
 import { Sidebar, tone, type Tone } from "./sidebar.tsx"
@@ -23,6 +23,55 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
     return route.type === "session" ? route.sessionID : undefined
   }
 
+  const monitorTarget = (id: string) => ({ target: { kind: "opencode-session", id } })
+
+  const listMonitors = async (sessionID: string): Promise<MonitorView[]> => {
+    const result = (await (await getClient()).request("monitor.list", monitorTarget(sessionID))) as { monitors?: MonitorView[] }
+    return result?.monitors ?? []
+  }
+
+  // Runs stop, start or remove the way the agent's tools do; the daemon answers
+  // { ok: false, error } for a monitor it refuses.
+  const runAction = async (sessionID: string, action: MonitorAction, id: string): Promise<void> => {
+    const result = (await (await getClient()).request(`monitor.${action}`, { ...monitorTarget(sessionID), id })) as { ok?: boolean; error?: string }
+    if (result?.ok === false) throw new Error(result.error ?? `monitor ${action} failed`)
+  }
+
+  const showMonitors = async (sessionID: string, focusIndex = 0): Promise<void> => {
+    const monitors = await listMonitors(sessionID)
+    ctx.ui.dialog.set({ size: "large" })
+    ctx.ui.dialog.show(() => (
+      <MonitorDialog
+        ctx={ctx}
+        monitors={monitors}
+        focusIndex={focusIndex}
+        toggle={async (monitor) => {
+          await runAction(sessionID, monitor.enabled ? "stop" : "start", monitor.id)
+          return listMonitors(sessionID)
+        }}
+        remove={(monitor, index) => void confirmRemove(sessionID, monitor, index)}
+      />
+    ))
+  }
+
+  // The confirmation replaces the monitors dialog, so the list reopens afterwards.
+  const confirmRemove = async (sessionID: string, monitor: MonitorView, index: number): Promise<void> => {
+    try {
+      const confirmed = await ctx.ui.dialog.confirm({
+        title: "Delete monitor",
+        message: `Delete ${monitor.describe}? It stops watching and its record is removed.`,
+        label: { confirm: "Delete", cancel: "Cancel" },
+      })
+      if (confirmed) {
+        await runAction(sessionID, "remove", monitor.id)
+        ctx.ui.toast.show({ variant: "success", message: `Deleted ${monitor.name}` })
+      }
+      await showMonitors(sessionID, index)
+    } catch (error) {
+      ctx.ui.toast.show({ variant: "error", message: `Sourcefed: ${errorMessage(error)}` })
+    }
+  }
+
   const disposeSlot = ctx.ui.slot({
     append: "sidebar.content",
     render: ({ sessionID }) => <Sidebar ctx={ctx} sessionID={sessionID} />,
@@ -30,7 +79,7 @@ export const sourcefedTui = (ctx: Plugin.Context): (() => void) => {
 
   const disposeKeymapSlot = ctx.ui.slot({
     append: "app",
-    render: () => <KeymapRegistration ctx={ctx} currentSessionID={currentSessionID} getClient={getClient} />,
+    render: () => <KeymapRegistration ctx={ctx} currentSessionID={currentSessionID} getClient={getClient} showMonitors={showMonitors} />,
   })
 
   return () => {
@@ -44,8 +93,9 @@ function KeymapRegistration(props: {
   ctx: Plugin.Context
   currentSessionID: () => string | undefined
   getClient: () => Promise<DaemonClient>
+  showMonitors: (sessionID: string) => Promise<void>
 }) {
-  const { ctx, currentSessionID, getClient } = props
+  const { ctx, currentSessionID, getClient, showMonitors } = props
 
   ctx.keymap.layer(() => ({
     mode: "global",
@@ -53,7 +103,7 @@ function KeymapRegistration(props: {
       {
         id: "sourcefed",
         title: "Sourcefed monitors",
-        description: "Show monitors for the current OpenCode session",
+        description: "Show, stop, start, or delete monitors for the current OpenCode session",
         slash: { name: "sourcefed" },
         run: async () => {
           const id = currentSessionID()
@@ -64,13 +114,9 @@ function KeymapRegistration(props: {
           }
 
           try {
-            const daemon = await getClient()
-            const result = (await daemon.request("monitor.list", { target: { kind: "opencode-session", id } })) as { monitors?: MonitorView[] }
-            const monitors = result?.monitors ?? []
-            ctx.ui.dialog.set({ size: "large" })
-            ctx.ui.dialog.show(() => <MonitorDialog ctx={ctx} monitors={monitors} />)
+            await showMonitors(id)
           } catch (error) {
-            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
+            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${errorMessage(error)}` })
           }
         },
       },
@@ -94,7 +140,7 @@ function KeymapRegistration(props: {
             ctx.ui.dialog.set({ size: "large" })
             ctx.ui.dialog.show(() => <LogsDialog ctx={ctx} logs={logs} />)
           } catch (error) {
-            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}` })
+            ctx.ui.toast.show({ variant: "error", message: `Sourcefed daemon unavailable: ${errorMessage(error)}` })
           }
         },
       },
@@ -104,34 +150,81 @@ function KeymapRegistration(props: {
   return null
 }
 
-function MonitorDialog(props: { ctx: Plugin.Context; monitors: MonitorView[] }) {
+type MonitorAction = "stop" | "start" | "remove"
+
+const DIALOG_LAYER_PRIORITY = 100
+
+function MonitorDialog(props: {
+  ctx: Plugin.Context
+  monitors: MonitorView[]
+  focusIndex: number
+  toggle: (monitor: MonitorView) => Promise<MonitorView[]>
+  remove: (monitor: MonitorView, index: number) => void
+}) {
   const palette = createMemo(() => tone(props.ctx.theme))
-  const active = props.monitors.filter((monitor) => monitor.enabled)
+  const [monitors, setMonitors] = createSignal(props.monitors)
+  const [selected, setSelected] = createSignal(clampIndex(props.focusIndex, props.monitors.length))
+  const [busy, setBusy] = createSignal<string>()
+  const [error, setError] = createSignal<string>()
+  const active = createMemo(() => monitors().filter((monitor) => monitor.enabled).length)
   const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45))
+
+  const move = (delta: number) => setSelected((index) => clampIndex(index + delta, monitors().length))
+  const current = () => (busy() ? undefined : monitors()[selected()])
+
+  const toggle = async (monitor: MonitorView) => {
+    setError(undefined)
+    setBusy(`${monitor.enabled ? "Stopping" : "Starting"} ${monitor.name}…`)
+    try {
+      const next = await props.toggle(monitor)
+      setMonitors(next)
+      const kept = next.findIndex((candidate) => candidate.id === monitor.id)
+      setSelected(clampIndex(kept >= 0 ? kept : selected(), next.length))
+    } catch (failure) {
+      setError(errorMessage(failure))
+    } finally {
+      setBusy(undefined)
+    }
+  }
+
+  // Owned by this dialog: the keys exist only while it is open.
+  props.ctx.keymap.layer(() => ({
+    mode: "global",
+    priority: DIALOG_LAYER_PRIORITY,
+    commands: [
+      { title: "Previous monitor", bind: "up", run: () => move(-1) },
+      { title: "Next monitor", bind: "down", run: () => move(1) },
+      { title: "Stop or start monitor", bind: "s", run: () => { const monitor = current(); if (monitor) void toggle(monitor) } },
+      { title: "Delete monitor", bind: "d", run: () => { const monitor = current(); if (monitor) props.remove(monitor, selected()) } },
+    ],
+  }))
+
   return (
     <box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
       <box flexDirection="row" width="100%" minWidth={0}>
-        <text fg={palette().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed monitors ({active.length})</text>
+        <text fg={palette().text} attributes={1} /* TextAttributes.BOLD */>Sourcefed monitors ({active()} active)</text>
         <box flexGrow={1} />
         <text fg={palette().textMuted}>esc</text>
       </box>
-      <Show when={active.length === 0} fallback={
+      <Show when={monitors().length > 0} fallback={<text fg={palette().textMuted}>No monitors</text>}>
         <scrollbox maxHeight={maxListRows} scrollY>
           <box flexDirection="column" width="100%">
-            {active.map((monitor) => <MonitorCard monitor={monitor} tone={palette()} />)}
+            {monitors().map((monitor, index) => <MonitorCard monitor={monitor} tone={palette()} selected={index === selected()} />)}
           </box>
         </scrollbox>
-      }>
-        <text fg={palette().textMuted}>No active monitors</text>
       </Show>
+      <Show when={error()}>
+        <text fg={palette().error}>{error()}</text>
+      </Show>
+      <text fg={palette().textMuted}>{busy() ?? "↑↓ select · s stop/start · d delete · esc close"}</text>
     </box>
   )
 }
 
-function MonitorCard(props: { monitor: MonitorView; tone: Tone }) {
+function MonitorCard(props: { monitor: MonitorView; tone: Tone; selected: boolean }) {
   const monitor = props.monitor
   const palette = props.tone
-  const status = monitor.unresponsive ? palette.error : monitor.enabled ? palette.success : palette.textMuted
+  const status = !monitor.enabled ? palette.textMuted : monitor.unresponsive ? palette.error : palette.success
   const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy"
   const rows: Array<[string, string]> = [
     ["Delivery", monitor.delivery],
@@ -142,20 +235,33 @@ function MonitorCard(props: { monitor: MonitorView; tone: Tone }) {
     ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)],
   ]
   return (
-    <box flexDirection="column" width="100%" minWidth={0} marginBottom={1}>
+    <box flexDirection="column" width="100%" minWidth={0} marginBottom={props.selected ? 1 : 0}>
       <box flexDirection="row" width="100%" minWidth={0}>
+        <box width={2} flexShrink={0}>
+          <text fg={palette.accent}>{props.selected ? "›" : ""}</text>
+        </box>
         <text fg={status}>●</text>
         <text fg={palette.text}> {monitor.icon} {monitor.describe}</text>
         <text fg={status} flexGrow={1} flexShrink={1} minWidth={0} truncate> [{statusLabel}]</text>
       </box>
-      {rows.map(([label, value]) => (
-        <box flexDirection="row" width="100%" minWidth={0}>
-          <text fg={palette.textMuted} flexShrink={0}>{label}: </text>
-          <text fg={palette.text} flexGrow={1} flexShrink={1} minWidth={0} truncate>{value}</text>
-        </box>
-      ))}
+      <Show when={props.selected}>
+        {rows.map(([label, value]) => (
+          <box flexDirection="row" width="100%" minWidth={0} paddingLeft={4}>
+            <text fg={palette.textMuted} flexShrink={0}>{label}: </text>
+            <text fg={palette.text} flexGrow={1} flexShrink={1} minWidth={0} truncate>{value}</text>
+          </box>
+        ))}
+      </Show>
     </box>
   )
+}
+
+function clampIndex(index: number, length: number): number {
+  return Math.min(Math.max(index, 0), Math.max(length - 1, 0))
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 function formatTime(value: string | undefined): string {

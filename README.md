@@ -69,8 +69,9 @@ Restart the host after installing. OpenCode resolves the server entrypoint from
 `exports["./server"]` and the TUI plugin from `exports["./tui"]`; Pi loads the extension
 from the package's `pi` metadata. Both register `monitor_create`/`monitor_list`/
 `monitor_status`/`monitor_start`/`monitor_stop` tools, and `/sourcefed` plus
-`/sourcefed-logs` dialogs that show per-monitor detail (delivery, poll interval,
-created/updated timestamps, last poll, webhook heartbeat).
+`/sourcefed-logs` dialogs. `/sourcefed` lists the session's monitors with the selected
+one's detail (delivery, poll interval, created/updated timestamps, last poll, webhook
+heartbeat); ↑/↓ selects, `s` stops or starts it, and `d` deletes it after a confirmation.
 
 Without `SOURCEFED_DAEMON_URL`, a host spawns one local HTTP daemon when none is running
 and connects to it, so monitors persist across sessions and share one registry.

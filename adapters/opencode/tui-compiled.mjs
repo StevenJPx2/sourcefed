@@ -7,7 +7,7 @@ import { insertNode as _$insertNode2 } from "opentui:runtime-module:%40opentui%2
 import { setProp as _$setProp2 } from "opentui:runtime-module:%40opentui%2Fsolid";
 import { createElement as _$createElement2 } from "opentui:runtime-module:%40opentui%2Fsolid";
 import { createComponent as _$createComponent2 } from "opentui:runtime-module:%40opentui%2Fsolid";
-import { createMemo as createMemo2, Show as Show2 } from "opentui:runtime-module:solid-js";
+import { createMemo as createMemo2, createSignal as createSignal2, Show as Show2 } from "opentui:runtime-module:solid-js";
 import { connectDaemonClient as connectDaemonClient2, defaultDaemonUrl as defaultDaemonUrl2 } from "@fdcn/sourcefed/daemon";
 
 // .tui-build/tui/sidebar.mjs
@@ -158,6 +158,64 @@ var sourcefedTui = (ctx) => {
     const route = ctx.ui.router.current();
     return route.type === "session" ? route.sessionID : void 0;
   };
+  const monitorTarget = (id2) => ({
+    target: {
+      kind: "opencode-session",
+      id: id2
+    }
+  });
+  const listMonitors = async (sessionID) => {
+    const result = await (await getClient()).request("monitor.list", monitorTarget(sessionID));
+    return result?.monitors ?? [];
+  };
+  const runAction = async (sessionID, action, id2) => {
+    const result = await (await getClient()).request(`monitor.${action}`, {
+      ...monitorTarget(sessionID),
+      id: id2
+    });
+    if (result?.ok === false) throw new Error(result.error ?? `monitor ${action} failed`);
+  };
+  const showMonitors = async (sessionID, focusIndex = 0) => {
+    const monitors = await listMonitors(sessionID);
+    ctx.ui.dialog.set({
+      size: "large"
+    });
+    ctx.ui.dialog.show(() => _$createComponent2(MonitorDialog, {
+      ctx,
+      monitors,
+      focusIndex,
+      toggle: async (monitor) => {
+        await runAction(sessionID, monitor.enabled ? "stop" : "start", monitor.id);
+        return listMonitors(sessionID);
+      },
+      remove: (monitor, index) => void confirmRemove(sessionID, monitor, index)
+    }));
+  };
+  const confirmRemove = async (sessionID, monitor, index) => {
+    try {
+      const confirmed = await ctx.ui.dialog.confirm({
+        title: "Delete monitor",
+        message: `Delete ${monitor.describe}? It stops watching and its record is removed.`,
+        label: {
+          confirm: "Delete",
+          cancel: "Cancel"
+        }
+      });
+      if (confirmed) {
+        await runAction(sessionID, "remove", monitor.id);
+        ctx.ui.toast.show({
+          variant: "success",
+          message: `Deleted ${monitor.name}`
+        });
+      }
+      await showMonitors(sessionID, index);
+    } catch (error) {
+      ctx.ui.toast.show({
+        variant: "error",
+        message: `Sourcefed: ${errorMessage(error)}`
+      });
+    }
+  };
   const disposeSlot = ctx.ui.slot({
     append: "sidebar.content",
     render: ({
@@ -172,7 +230,8 @@ var sourcefedTui = (ctx) => {
     render: () => _$createComponent2(KeymapRegistration, {
       ctx,
       currentSessionID,
-      getClient
+      getClient,
+      showMonitors
     })
   });
   return () => {
@@ -185,14 +244,15 @@ function KeymapRegistration(props) {
   const {
     ctx,
     currentSessionID,
-    getClient
+    getClient,
+    showMonitors
   } = props;
   ctx.keymap.layer(() => ({
     mode: "global",
     commands: [{
       id: "sourcefed",
       title: "Sourcefed monitors",
-      description: "Show monitors for the current OpenCode session",
+      description: "Show, stop, start, or delete monitors for the current OpenCode session",
       slash: {
         name: "sourcefed"
       },
@@ -206,25 +266,11 @@ function KeymapRegistration(props) {
           return;
         }
         try {
-          const daemon = await getClient();
-          const result = await daemon.request("monitor.list", {
-            target: {
-              kind: "opencode-session",
-              id: id2
-            }
-          });
-          const monitors = result?.monitors ?? [];
-          ctx.ui.dialog.set({
-            size: "large"
-          });
-          ctx.ui.dialog.show(() => _$createComponent2(MonitorDialog, {
-            ctx,
-            monitors
-          }));
+          await showMonitors(id2);
         } catch (error) {
           ctx.ui.toast.show({
             variant: "error",
-            message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
+            message: `Sourcefed daemon unavailable: ${errorMessage(error)}`
           });
         }
       }
@@ -263,7 +309,7 @@ function KeymapRegistration(props) {
         } catch (error) {
           ctx.ui.toast.show({
             variant: "error",
-            message: `Sourcefed daemon unavailable: ${error instanceof Error ? error.message : String(error)}`
+            message: `Sourcefed daemon unavailable: ${errorMessage(error)}`
           });
         }
       }
@@ -271,13 +317,62 @@ function KeymapRegistration(props) {
   }));
   return null;
 }
+var DIALOG_LAYER_PRIORITY = 100;
 function MonitorDialog(props) {
   const palette = createMemo2(() => tone(props.ctx.theme));
-  const active = props.monitors.filter((monitor) => monitor.enabled);
+  const [monitors, setMonitors] = createSignal2(props.monitors);
+  const [selected, setSelected] = createSignal2(clampIndex(props.focusIndex, props.monitors.length));
+  const [busy, setBusy] = createSignal2();
+  const [error, setError] = createSignal2();
+  const active = createMemo2(() => monitors().filter((monitor) => monitor.enabled).length);
   const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45));
+  const move = (delta) => setSelected((index) => clampIndex(index + delta, monitors().length));
+  const current = () => busy() ? void 0 : monitors()[selected()];
+  const toggle = async (monitor) => {
+    setError(void 0);
+    setBusy(`${monitor.enabled ? "Stopping" : "Starting"} ${monitor.name}\u2026`);
+    try {
+      const next = await props.toggle(monitor);
+      setMonitors(next);
+      const kept = next.findIndex((candidate) => candidate.id === monitor.id);
+      setSelected(clampIndex(kept >= 0 ? kept : selected(), next.length));
+    } catch (failure) {
+      setError(errorMessage(failure));
+    } finally {
+      setBusy(void 0);
+    }
+  };
+  props.ctx.keymap.layer(() => ({
+    mode: "global",
+    priority: DIALOG_LAYER_PRIORITY,
+    commands: [{
+      title: "Previous monitor",
+      bind: "up",
+      run: () => move(-1)
+    }, {
+      title: "Next monitor",
+      bind: "down",
+      run: () => move(1)
+    }, {
+      title: "Stop or start monitor",
+      bind: "s",
+      run: () => {
+        const monitor = current();
+        if (monitor) void toggle(monitor);
+      }
+    }, {
+      title: "Delete monitor",
+      bind: "d",
+      run: () => {
+        const monitor = current();
+        if (monitor) props.remove(monitor, selected());
+      }
+    }]
+  }));
   return (() => {
-    var _el$ = _$createElement2("box"), _el$2 = _$createElement2("box"), _el$3 = _$createElement2("text"), _el$4 = _$createTextNode2(`Sourcefed monitors (`), _el$5 = _$createTextNode2(`)`), _el$6 = _$createElement2("box"), _el$7 = _$createElement2("text");
+    var _el$ = _$createElement2("box"), _el$2 = _$createElement2("box"), _el$3 = _$createElement2("text"), _el$4 = _$createTextNode2(`Sourcefed monitors (`), _el$5 = _$createTextNode2(` active)`), _el$6 = _$createElement2("box"), _el$7 = _$createElement2("text"), _el$10 = _$createElement2("text");
     _$insertNode2(_el$, _el$2);
+    _$insertNode2(_el$, _el$10);
     _$setProp2(_el$, "flexDirection", "column");
     _$setProp2(_el$, "width", "100%");
     _$setProp2(_el$, "paddingX", 2);
@@ -291,45 +386,62 @@ function MonitorDialog(props) {
     _$insertNode2(_el$3, _el$4);
     _$insertNode2(_el$3, _el$5);
     _$setProp2(_el$3, "attributes", 1);
-    _$insert2(_el$3, () => active.length, _el$5);
+    _$insert2(_el$3, active, _el$5);
     _$setProp2(_el$6, "flexGrow", 1);
     _$insertNode2(_el$7, _$createTextNode2(`esc`));
     _$insert2(_el$, _$createComponent2(Show2, {
       get when() {
-        return active.length === 0;
+        return monitors().length > 0;
       },
       get fallback() {
         return (() => {
-          var _el$1 = _$createElement2("scrollbox"), _el$10 = _$createElement2("box");
-          _$insertNode2(_el$1, _el$10);
-          _$setProp2(_el$1, "maxHeight", maxListRows);
-          _$setProp2(_el$1, "scrollY", true);
-          _$setProp2(_el$10, "flexDirection", "column");
-          _$setProp2(_el$10, "width", "100%");
-          _$insert2(_el$10, () => active.map((monitor) => _$createComponent2(MonitorCard, {
-            monitor,
-            get tone() {
-              return palette();
-            }
-          })));
-          return _el$1;
+          var _el$11 = _$createElement2("text");
+          _$insertNode2(_el$11, _$createTextNode2(`No monitors`));
+          _$effect2((_$p) => _$setProp2(_el$11, "fg", palette().textMuted, _$p));
+          return _el$11;
         })();
       },
       get children() {
-        var _el$9 = _$createElement2("text");
-        _$insertNode2(_el$9, _$createTextNode2(`No active monitors`));
-        _$effect2((_$p) => _$setProp2(_el$9, "fg", palette().textMuted, _$p));
+        var _el$9 = _$createElement2("scrollbox"), _el$0 = _$createElement2("box");
+        _$insertNode2(_el$9, _el$0);
+        _$setProp2(_el$9, "maxHeight", maxListRows);
+        _$setProp2(_el$9, "scrollY", true);
+        _$setProp2(_el$0, "flexDirection", "column");
+        _$setProp2(_el$0, "width", "100%");
+        _$insert2(_el$0, () => monitors().map((monitor, index) => _$createComponent2(MonitorCard, {
+          monitor,
+          get tone() {
+            return palette();
+          },
+          get selected() {
+            return index === selected();
+          }
+        })));
         return _el$9;
       }
-    }), null);
+    }), _el$10);
+    _$insert2(_el$, _$createComponent2(Show2, {
+      get when() {
+        return error();
+      },
+      get children() {
+        var _el$1 = _$createElement2("text");
+        _$insert2(_el$1, error);
+        _$effect2((_$p) => _$setProp2(_el$1, "fg", palette().error, _$p));
+        return _el$1;
+      }
+    }), _el$10);
+    _$insert2(_el$10, () => busy() ?? "\u2191\u2193 select \xB7 s stop/start \xB7 d delete \xB7 esc close");
     _$effect2((_p$) => {
-      var _v$ = palette().text, _v$2 = palette().textMuted;
+      var _v$ = palette().text, _v$2 = palette().textMuted, _v$3 = palette().textMuted;
       _v$ !== _p$.e && (_p$.e = _$setProp2(_el$3, "fg", _v$, _p$.e));
       _v$2 !== _p$.t && (_p$.t = _$setProp2(_el$7, "fg", _v$2, _p$.t));
+      _v$3 !== _p$.a && (_p$.a = _$setProp2(_el$10, "fg", _v$3, _p$.a));
       return _p$;
     }, {
       e: void 0,
-      t: void 0
+      t: void 0,
+      a: void 0
     });
     return _el$;
   })();
@@ -337,65 +449,93 @@ function MonitorDialog(props) {
 function MonitorCard(props) {
   const monitor = props.monitor;
   const palette = props.tone;
-  const status = monitor.unresponsive ? palette.error : monitor.enabled ? palette.success : palette.textMuted;
+  const status = !monitor.enabled ? palette.textMuted : monitor.unresponsive ? palette.error : palette.success;
   const statusLabel = !monitor.enabled ? "stopped" : monitor.unresponsive ? "recovering connection" : "healthy";
   const rows = [["Delivery", monitor.delivery], ["Poll interval", `${monitor.pollIntervalSec}s`], ["Created", formatTime(monitor.createdAt)], ["Updated", formatTime(monitor.updatedAt)], ["Last poll", formatTime(monitor.lastPolledAt)], ["Webhook heartbeat", formatTime(monitor.webhookHeartbeatAt)]];
   return (() => {
-    var _el$11 = _$createElement2("box"), _el$12 = _$createElement2("box"), _el$13 = _$createElement2("text"), _el$15 = _$createElement2("text"), _el$16 = _$createTextNode2(` `), _el$17 = _$createTextNode2(` `), _el$18 = _$createElement2("text"), _el$19 = _$createTextNode2(` [`), _el$20 = _$createTextNode2(`]`);
-    _$insertNode2(_el$11, _el$12);
-    _$setProp2(_el$11, "flexDirection", "column");
-    _$setProp2(_el$11, "width", "100%");
-    _$setProp2(_el$11, "minWidth", 0);
-    _$setProp2(_el$11, "marginBottom", 1);
-    _$insertNode2(_el$12, _el$13);
-    _$insertNode2(_el$12, _el$15);
-    _$insertNode2(_el$12, _el$18);
-    _$setProp2(_el$12, "flexDirection", "row");
-    _$setProp2(_el$12, "width", "100%");
-    _$setProp2(_el$12, "minWidth", 0);
-    _$insertNode2(_el$13, _$createTextNode2(`\u25CF`));
-    _$setProp2(_el$13, "fg", status);
+    var _el$13 = _$createElement2("box"), _el$14 = _$createElement2("box"), _el$15 = _$createElement2("box"), _el$16 = _$createElement2("text"), _el$17 = _$createElement2("text"), _el$19 = _$createElement2("text"), _el$20 = _$createTextNode2(` `), _el$21 = _$createTextNode2(` `), _el$22 = _$createElement2("text"), _el$23 = _$createTextNode2(` [`), _el$24 = _$createTextNode2(`]`);
+    _$insertNode2(_el$13, _el$14);
+    _$setProp2(_el$13, "flexDirection", "column");
+    _$setProp2(_el$13, "width", "100%");
+    _$setProp2(_el$13, "minWidth", 0);
+    _$insertNode2(_el$14, _el$15);
+    _$insertNode2(_el$14, _el$17);
+    _$insertNode2(_el$14, _el$19);
+    _$insertNode2(_el$14, _el$22);
+    _$setProp2(_el$14, "flexDirection", "row");
+    _$setProp2(_el$14, "width", "100%");
+    _$setProp2(_el$14, "minWidth", 0);
     _$insertNode2(_el$15, _el$16);
-    _$insertNode2(_el$15, _el$17);
-    _$insert2(_el$15, () => monitor.icon, _el$17);
-    _$insert2(_el$15, () => monitor.describe, null);
-    _$insertNode2(_el$18, _el$19);
-    _$insertNode2(_el$18, _el$20);
-    _$setProp2(_el$18, "fg", status);
-    _$setProp2(_el$18, "flexGrow", 1);
-    _$setProp2(_el$18, "flexShrink", 1);
-    _$setProp2(_el$18, "minWidth", 0);
-    _$setProp2(_el$18, "truncate", true);
-    _$insert2(_el$18, statusLabel, _el$20);
-    _$insert2(_el$11, () => rows.map(([label, value]) => (() => {
-      var _el$21 = _$createElement2("box"), _el$22 = _$createElement2("text"), _el$23 = _$createTextNode2(`: `), _el$24 = _$createElement2("text");
-      _$insertNode2(_el$21, _el$22);
-      _$insertNode2(_el$21, _el$24);
-      _$setProp2(_el$21, "flexDirection", "row");
-      _$setProp2(_el$21, "width", "100%");
-      _$setProp2(_el$21, "minWidth", 0);
-      _$insertNode2(_el$22, _el$23);
-      _$setProp2(_el$22, "flexShrink", 0);
-      _$insert2(_el$22, label, _el$23);
-      _$setProp2(_el$24, "flexGrow", 1);
-      _$setProp2(_el$24, "flexShrink", 1);
-      _$setProp2(_el$24, "minWidth", 0);
-      _$setProp2(_el$24, "truncate", true);
-      _$insert2(_el$24, value);
-      _$effect2((_p$) => {
-        var _v$3 = palette.textMuted, _v$4 = palette.text;
-        _v$3 !== _p$.e && (_p$.e = _$setProp2(_el$22, "fg", _v$3, _p$.e));
-        _v$4 !== _p$.t && (_p$.t = _$setProp2(_el$24, "fg", _v$4, _p$.t));
-        return _p$;
-      }, {
-        e: void 0,
-        t: void 0
-      });
-      return _el$21;
-    })()), null);
-    _$effect2((_$p) => _$setProp2(_el$15, "fg", palette.text, _$p));
-    return _el$11;
+    _$setProp2(_el$15, "width", 2);
+    _$setProp2(_el$15, "flexShrink", 0);
+    _$insert2(_el$16, () => props.selected ? "\u203A" : "");
+    _$insertNode2(_el$17, _$createTextNode2(`\u25CF`));
+    _$setProp2(_el$17, "fg", status);
+    _$insertNode2(_el$19, _el$20);
+    _$insertNode2(_el$19, _el$21);
+    _$insert2(_el$19, () => monitor.icon, _el$21);
+    _$insert2(_el$19, () => monitor.describe, null);
+    _$insertNode2(_el$22, _el$23);
+    _$insertNode2(_el$22, _el$24);
+    _$setProp2(_el$22, "fg", status);
+    _$setProp2(_el$22, "flexGrow", 1);
+    _$setProp2(_el$22, "flexShrink", 1);
+    _$setProp2(_el$22, "minWidth", 0);
+    _$setProp2(_el$22, "truncate", true);
+    _$insert2(_el$22, statusLabel, _el$24);
+    _$insert2(_el$13, _$createComponent2(Show2, {
+      get when() {
+        return props.selected;
+      },
+      get children() {
+        return rows.map(([label, value]) => (() => {
+          var _el$25 = _$createElement2("box"), _el$26 = _$createElement2("text"), _el$27 = _$createTextNode2(`: `), _el$28 = _$createElement2("text");
+          _$insertNode2(_el$25, _el$26);
+          _$insertNode2(_el$25, _el$28);
+          _$setProp2(_el$25, "flexDirection", "row");
+          _$setProp2(_el$25, "width", "100%");
+          _$setProp2(_el$25, "minWidth", 0);
+          _$setProp2(_el$25, "paddingLeft", 4);
+          _$insertNode2(_el$26, _el$27);
+          _$setProp2(_el$26, "flexShrink", 0);
+          _$insert2(_el$26, label, _el$27);
+          _$setProp2(_el$28, "flexGrow", 1);
+          _$setProp2(_el$28, "flexShrink", 1);
+          _$setProp2(_el$28, "minWidth", 0);
+          _$setProp2(_el$28, "truncate", true);
+          _$insert2(_el$28, value);
+          _$effect2((_p$) => {
+            var _v$7 = palette.textMuted, _v$8 = palette.text;
+            _v$7 !== _p$.e && (_p$.e = _$setProp2(_el$26, "fg", _v$7, _p$.e));
+            _v$8 !== _p$.t && (_p$.t = _$setProp2(_el$28, "fg", _v$8, _p$.t));
+            return _p$;
+          }, {
+            e: void 0,
+            t: void 0
+          });
+          return _el$25;
+        })());
+      }
+    }), null);
+    _$effect2((_p$) => {
+      var _v$4 = props.selected ? 1 : 0, _v$5 = palette.accent, _v$6 = palette.text;
+      _v$4 !== _p$.e && (_p$.e = _$setProp2(_el$13, "marginBottom", _v$4, _p$.e));
+      _v$5 !== _p$.t && (_p$.t = _$setProp2(_el$16, "fg", _v$5, _p$.t));
+      _v$6 !== _p$.a && (_p$.a = _$setProp2(_el$19, "fg", _v$6, _p$.a));
+      return _p$;
+    }, {
+      e: void 0,
+      t: void 0,
+      a: void 0
+    });
+    return _el$13;
   })();
+}
+function clampIndex(index, length) {
+  return Math.min(Math.max(index, 0), Math.max(length - 1, 0));
+}
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 function formatTime(value) {
   if (!value) return "never";
@@ -407,107 +547,107 @@ function LogsDialog(props) {
   const palette = createMemo2(() => tone(props.ctx.theme));
   const maxListRows = Math.max(6, Math.floor(props.ctx.renderer.height * 0.45));
   return (() => {
-    var _el$25 = _$createElement2("box"), _el$26 = _$createElement2("box"), _el$27 = _$createElement2("text"), _el$28 = _$createTextNode2(`Sourcefed notifications (`), _el$29 = _$createTextNode2(`)`), _el$30 = _$createElement2("box"), _el$31 = _$createElement2("text");
-    _$insertNode2(_el$25, _el$26);
-    _$setProp2(_el$25, "flexDirection", "column");
-    _$setProp2(_el$25, "width", "100%");
-    _$setProp2(_el$25, "paddingX", 2);
-    _$setProp2(_el$25, "paddingY", 1);
-    _$insertNode2(_el$26, _el$27);
-    _$insertNode2(_el$26, _el$30);
-    _$insertNode2(_el$26, _el$31);
-    _$setProp2(_el$26, "flexDirection", "row");
-    _$setProp2(_el$26, "width", "100%");
-    _$setProp2(_el$26, "minWidth", 0);
-    _$insertNode2(_el$27, _el$28);
-    _$insertNode2(_el$27, _el$29);
-    _$setProp2(_el$27, "attributes", 1);
-    _$insert2(_el$27, () => props.logs.length, _el$29);
-    _$setProp2(_el$30, "flexGrow", 1);
-    _$insertNode2(_el$31, _$createTextNode2(`esc`));
-    _$insert2(_el$25, _$createComponent2(Show2, {
+    var _el$29 = _$createElement2("box"), _el$30 = _$createElement2("box"), _el$31 = _$createElement2("text"), _el$32 = _$createTextNode2(`Sourcefed notifications (`), _el$33 = _$createTextNode2(`)`), _el$34 = _$createElement2("box"), _el$35 = _$createElement2("text");
+    _$insertNode2(_el$29, _el$30);
+    _$setProp2(_el$29, "flexDirection", "column");
+    _$setProp2(_el$29, "width", "100%");
+    _$setProp2(_el$29, "paddingX", 2);
+    _$setProp2(_el$29, "paddingY", 1);
+    _$insertNode2(_el$30, _el$31);
+    _$insertNode2(_el$30, _el$34);
+    _$insertNode2(_el$30, _el$35);
+    _$setProp2(_el$30, "flexDirection", "row");
+    _$setProp2(_el$30, "width", "100%");
+    _$setProp2(_el$30, "minWidth", 0);
+    _$insertNode2(_el$31, _el$32);
+    _$insertNode2(_el$31, _el$33);
+    _$setProp2(_el$31, "attributes", 1);
+    _$insert2(_el$31, () => props.logs.length, _el$33);
+    _$setProp2(_el$34, "flexGrow", 1);
+    _$insertNode2(_el$35, _$createTextNode2(`esc`));
+    _$insert2(_el$29, _$createComponent2(Show2, {
       get when() {
         return props.logs.length > 0;
       },
       get fallback() {
         return (() => {
-          var _el$35 = _$createElement2("text");
-          _$insertNode2(_el$35, _$createTextNode2(`No notifications sent yet`));
-          _$effect2((_$p) => _$setProp2(_el$35, "fg", palette().textMuted, _$p));
-          return _el$35;
+          var _el$39 = _$createElement2("text");
+          _$insertNode2(_el$39, _$createTextNode2(`No notifications sent yet`));
+          _$effect2((_$p) => _$setProp2(_el$39, "fg", palette().textMuted, _$p));
+          return _el$39;
         })();
       },
       get children() {
-        var _el$33 = _$createElement2("scrollbox"), _el$34 = _$createElement2("box");
-        _$insertNode2(_el$33, _el$34);
-        _$setProp2(_el$33, "maxHeight", maxListRows);
-        _$setProp2(_el$33, "scrollY", true);
-        _$setProp2(_el$33, "stickyScroll", true);
-        _$setProp2(_el$33, "stickyStart", "bottom");
-        _$setProp2(_el$34, "flexDirection", "column");
-        _$setProp2(_el$34, "width", "100%");
-        _$insert2(_el$34, () => props.logs.map((entry) => (() => {
-          var _el$37 = _$createElement2("box"), _el$38 = _$createElement2("box"), _el$39 = _$createElement2("text"), _el$40 = _$createElement2("text"), _el$41 = _$createTextNode2(` `), _el$42 = _$createElement2("text"), _el$43 = _$createTextNode2(` `), _el$44 = _$createTextNode2(` `);
-          _$insertNode2(_el$37, _el$38);
-          _$setProp2(_el$37, "flexDirection", "column");
-          _$setProp2(_el$37, "width", "100%");
-          _$insertNode2(_el$38, _el$39);
-          _$insertNode2(_el$38, _el$40);
-          _$insertNode2(_el$38, _el$42);
-          _$setProp2(_el$38, "flexDirection", "row");
-          _$setProp2(_el$38, "width", "100%");
-          _$setProp2(_el$38, "minWidth", 0);
-          _$insert2(_el$39, () => entry.actionable ? "\u25B6" : "\xB7");
-          _$insertNode2(_el$40, _el$41);
-          _$setProp2(_el$40, "flexShrink", 0);
-          _$setProp2(_el$40, "minWidth", 0);
-          _$insert2(_el$40, () => entry.icon, null);
+        var _el$37 = _$createElement2("scrollbox"), _el$38 = _$createElement2("box");
+        _$insertNode2(_el$37, _el$38);
+        _$setProp2(_el$37, "maxHeight", maxListRows);
+        _$setProp2(_el$37, "scrollY", true);
+        _$setProp2(_el$37, "stickyScroll", true);
+        _$setProp2(_el$37, "stickyStart", "bottom");
+        _$setProp2(_el$38, "flexDirection", "column");
+        _$setProp2(_el$38, "width", "100%");
+        _$insert2(_el$38, () => props.logs.map((entry) => (() => {
+          var _el$41 = _$createElement2("box"), _el$42 = _$createElement2("box"), _el$43 = _$createElement2("text"), _el$44 = _$createElement2("text"), _el$45 = _$createTextNode2(` `), _el$46 = _$createElement2("text"), _el$47 = _$createTextNode2(` `), _el$48 = _$createTextNode2(` `);
+          _$insertNode2(_el$41, _el$42);
+          _$setProp2(_el$41, "flexDirection", "column");
+          _$setProp2(_el$41, "width", "100%");
           _$insertNode2(_el$42, _el$43);
           _$insertNode2(_el$42, _el$44);
-          _$setProp2(_el$42, "flexGrow", 1);
-          _$setProp2(_el$42, "flexShrink", 1);
+          _$insertNode2(_el$42, _el$46);
+          _$setProp2(_el$42, "flexDirection", "row");
+          _$setProp2(_el$42, "width", "100%");
           _$setProp2(_el$42, "minWidth", 0);
-          _$setProp2(_el$42, "truncate", true);
-          _$insert2(_el$42, () => new Date(entry.at).toLocaleString(), _el$44);
-          _$insert2(_el$42, () => entry.summary, null);
-          _$insert2(_el$37, _$createComponent2(Show2, {
+          _$insert2(_el$43, () => entry.actionable ? "\u25B6" : "\xB7");
+          _$insertNode2(_el$44, _el$45);
+          _$setProp2(_el$44, "flexShrink", 0);
+          _$setProp2(_el$44, "minWidth", 0);
+          _$insert2(_el$44, () => entry.icon, null);
+          _$insertNode2(_el$46, _el$47);
+          _$insertNode2(_el$46, _el$48);
+          _$setProp2(_el$46, "flexGrow", 1);
+          _$setProp2(_el$46, "flexShrink", 1);
+          _$setProp2(_el$46, "minWidth", 0);
+          _$setProp2(_el$46, "truncate", true);
+          _$insert2(_el$46, () => new Date(entry.at).toLocaleString(), _el$48);
+          _$insert2(_el$46, () => entry.summary, null);
+          _$insert2(_el$41, _$createComponent2(Show2, {
             get when() {
               return entry.body;
             },
             get children() {
-              var _el$45 = _$createElement2("text"), _el$46 = _$createTextNode2(` `);
-              _$insertNode2(_el$45, _el$46);
-              _$insert2(_el$45, () => entry.body, null);
-              _$effect2((_$p) => _$setProp2(_el$45, "fg", palette().textMuted, _$p));
-              return _el$45;
+              var _el$49 = _$createElement2("text"), _el$50 = _$createTextNode2(` `);
+              _$insertNode2(_el$49, _el$50);
+              _$insert2(_el$49, () => entry.body, null);
+              _$effect2((_$p) => _$setProp2(_el$49, "fg", palette().textMuted, _$p));
+              return _el$49;
             }
           }), null);
           _$effect2((_p$) => {
-            var _v$7 = entry.actionable ? palette().warning : palette().textMuted, _v$8 = palette().text, _v$9 = palette().text;
-            _v$7 !== _p$.e && (_p$.e = _$setProp2(_el$39, "fg", _v$7, _p$.e));
-            _v$8 !== _p$.t && (_p$.t = _$setProp2(_el$40, "fg", _v$8, _p$.t));
-            _v$9 !== _p$.a && (_p$.a = _$setProp2(_el$42, "fg", _v$9, _p$.a));
+            var _v$1 = entry.actionable ? palette().warning : palette().textMuted, _v$10 = palette().text, _v$11 = palette().text;
+            _v$1 !== _p$.e && (_p$.e = _$setProp2(_el$43, "fg", _v$1, _p$.e));
+            _v$10 !== _p$.t && (_p$.t = _$setProp2(_el$44, "fg", _v$10, _p$.t));
+            _v$11 !== _p$.a && (_p$.a = _$setProp2(_el$46, "fg", _v$11, _p$.a));
             return _p$;
           }, {
             e: void 0,
             t: void 0,
             a: void 0
           });
-          return _el$37;
+          return _el$41;
         })()));
-        return _el$33;
+        return _el$37;
       }
     }), null);
     _$effect2((_p$) => {
-      var _v$5 = palette().text, _v$6 = palette().textMuted;
-      _v$5 !== _p$.e && (_p$.e = _$setProp2(_el$27, "fg", _v$5, _p$.e));
-      _v$6 !== _p$.t && (_p$.t = _$setProp2(_el$31, "fg", _v$6, _p$.t));
+      var _v$9 = palette().text, _v$0 = palette().textMuted;
+      _v$9 !== _p$.e && (_p$.e = _$setProp2(_el$31, "fg", _v$9, _p$.e));
+      _v$0 !== _p$.t && (_p$.t = _$setProp2(_el$35, "fg", _v$0, _p$.t));
       return _p$;
     }, {
       e: void 0,
       t: void 0
     });
-    return _el$25;
+    return _el$29;
   })();
 }
 
