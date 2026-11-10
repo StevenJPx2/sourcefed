@@ -1,6 +1,7 @@
 # sourcefed monitors
 
-Monitors watch a Jira issue, GitHub PR, or Slack thread and bring new events into this session.
+Monitors watch a Jira issue, GitHub PR, Slack thread, or a feed read through Yab and bring new events
+into this session.
 
 Create one with `monitor_create` when:
 
@@ -9,7 +10,10 @@ Create one with `monitor_create` when:
 - your branch has a PR: `{ name: "<pr>", sourceType: "github", repo: "owner/name", prNumber: 42 }`
   (reviews, comments, CI failures, conflicts, merge or close);
 - you were given a Slack thread: `{ name: "<thread>", sourceType: "slack", threadUrl: "<url>" }`
-  (new messages; read-only, never replies).
+  (new messages; read-only, never replies);
+- the user wants new entries of a feed they are signed in to in Yab (unread Gmail, a job board's RSS):
+  `{ name: "<feed>", sourceType: "yab", url: "https://mail.google.com/mail/u/0/feed/atom", space: "Personal", match: "interview|offer" }`
+  (each new entry; `match`/`exclude` are case-insensitive regexes; Yab must be running).
 
 Keep the default `pollIntervalSec` unless the work is time-sensitive (min 15).
 `monitor_list`, `monitor_status { id }` and `monitor_stop { id }` act on this session's monitors.

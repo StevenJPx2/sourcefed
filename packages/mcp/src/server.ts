@@ -66,6 +66,10 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
     channelId: z.string().optional(),
     threadTs: z.string().optional(),
     threadUrl: z.string().optional(),
+    url: z.string().optional(),
+    space: z.string().optional(),
+    match: z.string().optional(),
+    exclude: z.string().optional(),
     pollIntervalSec: z.number().min(15).optional(),
     target: targetSchema,
   })
@@ -81,7 +85,7 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
   server.registerTool(
     "monitor_create",
     {
-      description: "Create or reuse a monitor for a Jira issue, GitHub pull request, Slack thread, or Slack DM.",
+      description: "Create or reuse a monitor for a Jira issue, GitHub pull request, Slack thread, Slack DM, or a feed read through Yab.",
       inputSchema: createSchema,
       annotations: { idempotentHint: true, readOnlyHint: false },
     },

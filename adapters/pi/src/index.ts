@@ -13,6 +13,7 @@ const SOURCE_ICONS: Record<string, string> = {
   jira: "󰌃",
   github: "󰊤",
   slack: "󰒱",
+  yab: "󰖟",
 }
 
 type PiTarget = { kind: "pi-session"; id: string }
@@ -46,16 +47,20 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   pi.registerTool({
     name: "sourcefed_monitor_create",
     label: "Sourcefed monitor create",
-    description: "Create or reuse a Jira, GitHub PR, Slack thread, or Slack DM monitor for the current Pi session.",
+    description: "Create or reuse a Jira, GitHub PR, Slack thread, Slack DM, or Yab feed monitor for the current Pi session.",
     parameters: Type.Object({
       name: Type.String(),
-      sourceType: Type.Unsafe<string>({ type: "string", enum: ["jira", "github", "slack"] }),
+      sourceType: Type.Unsafe<string>({ type: "string", enum: ["jira", "github", "slack", "yab"] }),
       issueKey: Type.Optional(Type.String()),
       repo: Type.Optional(Type.String()),
       prNumber: Type.Optional(Type.Number()),
       channelId: Type.Optional(Type.String()),
       threadTs: Type.Optional(Type.String()),
       threadUrl: Type.Optional(Type.String()),
+      url: Type.Optional(Type.String()),
+      space: Type.Optional(Type.String()),
+      match: Type.Optional(Type.String()),
+      exclude: Type.Optional(Type.String()),
       pollIntervalSec: Type.Optional(Type.Number()),
     }),
     execute: async (_toolCallID, input, _signal, _onUpdate, ctx) => toolResult(await call(ctx, "monitor_create", input)),
