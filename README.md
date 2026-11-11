@@ -104,7 +104,9 @@ delivered. Events delivered to OpenCode carry `metadata.sourcefed` (`eventID`, `
 OpenCode plugin instances share one process-wide subscription hub: at most one SSE
 stream per enabled, owned session target, regardless of how many project locations
 are loaded. Stopped monitors, deleted sessions and unloaded owners release streams;
-external CLI/Chauffeur changes are reconciled every 15 seconds. See
+external CLI/Chauffeur changes are reconciled every 15 seconds. Long-lived SSE uses
+dedicated HTTP/HTTPS sockets rather than `fetch`, so valid monitoring demand cannot
+occupy Bun’s process-wide fetch slots needed by providers and other plugins. See
 [subscription lifecycle](docs/subscription-lifecycle.md) for ownership and cleanup rules.
 
 ## MCP

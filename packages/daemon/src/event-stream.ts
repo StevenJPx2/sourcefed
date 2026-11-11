@@ -1,6 +1,8 @@
+import type { IncomingMessage } from "node:http"
 import type { QueuedMonitorEvent } from "@sourcefed/core"
 import { parseDaemonFrame } from "./types/protocol.ts"
 import { withTimeout } from "./utils"
+import { openEventResponse, eventReader } from "./event-transport.ts"
 
 /** Owns one SSE connection, its setup, serialized delivery and reconnect loop. */
 export class DaemonEventStream {
@@ -39,7 +41,7 @@ export class DaemonEventStream {
   close(): Promise<void> {
     if (!this.closing) {
       this.subscribed.reject(new Error("sourcefed event stream closed"))
-      // Pending setup has no delivery to drain and must release its fetch immediately.
+      // Pending setup has no delivery to drain and must release its socket immediately.
       if (!this.ready) this.controller.abort()
       this.closing = this.drain()
     }
@@ -82,15 +84,12 @@ export class DaemonEventStream {
     const abort = () => controller.abort()
     this.stream = controller
     this.controller.signal.addEventListener("abort", abort, { once: true })
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
+    let reader: ReturnType<typeof eventReader> | undefined
+    let response: IncomingMessage | undefined
     try {
       this.controller.signal.throwIfAborted()
-      const response = await fetch(this.url, { signal: controller.signal, headers: this.headers })
-      if (!response.ok || !response.body) {
-        await response.body?.cancel()
-        throw new Error(`event stream failed: ${response.status}`)
-      }
-      reader = response.body.getReader()
+      response = await openEventResponse(this.url, this.headers, controller.signal)
+      reader = eventReader(response)
       const decoder = new TextDecoder()
       let buffer = ""
       while (!controller.signal.aborted) {
@@ -104,6 +103,7 @@ export class DaemonEventStream {
     } finally {
       await reader?.cancel().catch(() => undefined)
       reader?.releaseLock()
+      response?.destroy()
       this.controller.signal.removeEventListener("abort", abort)
       if (this.stream === controller) this.stream = undefined
     }

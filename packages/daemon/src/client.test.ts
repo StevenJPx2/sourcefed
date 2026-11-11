@@ -334,6 +334,8 @@ describe("daemon clients", () => {
       })
       const sourceTypes = await authenticated.request("daemon.sourceTypes")
       assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "github", "slack", "yab"] })
+      const listener = await authenticated.subscribe({ kind: "test", id: "authenticated" }, async () => {})
+      await listener.close()
       await authenticated.close()
     } finally {
       await server.stop()
