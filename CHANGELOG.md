@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.4.0
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.8...v0.4.0)
+
+### 🩹 Fixes
+
+- **daemon:** Isolate SSE sockets from the fetch queue ([c6fb892](https://github.com/StevenJPx2/sourcefed/commit/c6fb892))
+- **deps:** Upgrade MCP and OpenCode dependency chains ([ff78b28](https://github.com/StevenJPx2/sourcefed/commit/ff78b28))
+- **packaging:** Use optional host-provided Pi peers ([e751b71](https://github.com/StevenJPx2/sourcefed/commit/e751b71))
+- **types:** Ship declarations for the TUI and Pi entry points ([cf705db](https://github.com/StevenJPx2/sourcefed/commit/cf705db))
+
+### 🏡 Chore
+
+- **release:** Verify exact artifacts with isolated, fail-closed release gates ([1cde23b](https://github.com/StevenJPx2/sourcefed/commit/1cde23b))
+
+### ✅ Tests
+
+- **integration:** Isolate scenarios from the caller's environment ([e2aa8d2](https://github.com/StevenJPx2/sourcefed/commit/e2aa8d2))
+
 
 ## v0.3.8
 
