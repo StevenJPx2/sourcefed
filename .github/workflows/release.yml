@@ -1,8 +1,10 @@
 name: Release
 
-# Publishes @fdcn/sourcefed when a release tag such as v0.4.2 is pushed. npm
-# trusted publishing authenticates this workflow (release.yml) with OIDC and
-# adds provenance; NPM_TOKEN, a granular publish token, is the fallback.
+# Stages @fdcn/sourcefed when a release tag such as v0.4.2 is pushed; a
+# maintainer approves it with 2FA on npmjs.com (Staged Packages) or with
+# `npm stage approve`, which publishes it. npm trusted publishing
+# authenticates this workflow (release.yml) with OIDC and adds provenance;
+# NPM_TOKEN, a granular publish token, is the fallback.
 
 on:
   push:
@@ -24,15 +26,15 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: npm 11.5.1 or later, for trusted publishing
-        run: npm install -g npm@^11.5.1
+      - name: npm 11.15.0 or later, for staged publishing
+        run: npm install -g npm@^11.15.0
       - name: The tag names the package's version
         run: test "v$(node -p "require('./packages/sourcefed/package.json').version")" = "$GITHUB_REF_NAME"
       - run: npm ci
       # One retry: a timing-sensitive subscription test fails now and then on shared runners.
       - run: npm run check || npm run check
-      - name: Publish
+      - name: Stage for approval
         working-directory: packages/sourcefed
-        run: npm publish --access public
+        run: npm stage publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
