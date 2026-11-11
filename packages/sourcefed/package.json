@@ -42,14 +42,25 @@
       "types": "./dist.dts/adapters/opencode/index.d.ts",
       "default": "./dist/opencode.js"
     },
-    "./opencode/tui": "./dist/tui-compiled.mjs",
-    "./tui": "./dist/tui-compiled.mjs",
-    "./pi": "./dist/pi.js",
+    "./opencode/tui": {
+      "types": "./dist.dts/adapters/opencode/tui.d.ts",
+      "default": "./dist/tui-compiled.mjs"
+    },
+    "./tui": {
+      "types": "./dist.dts/adapters/opencode/tui.d.ts",
+      "default": "./dist/tui-compiled.mjs"
+    },
+    "./pi": {
+      "types": "./dist.dts/adapters/pi/src/index.d.ts",
+      "default": "./dist/pi.js"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
-    "@opencode/plugin": "2.2.7"
+    "@opencode/plugin": "2.2.7",
+    "@types/json-schema": "7.0.15",
+    "valibot": "1.4.2"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
