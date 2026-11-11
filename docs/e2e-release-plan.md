@@ -1,189 +1,297 @@
 # End-to-End Release Plan
 
-## Goal
+Status: In progress. Automated gates run against one exact tarball. Human visual
+review is required before publication. Registry and explicitly authorized Homebrew
+checks run after publication; Homebrew must pass before the public tap changes.
 
-Every npm release of `@fdcn/sourcefed` is tested as the exact tarball that will be published. The release gate covers the CLI, daemon, MCP transports, OpenCode server and TUI plugins, Pi extension, and Homebrew formula without relying on private workspace packages or existing user state.
-
-The release pipeline is three commands, each with one job:
-
-```sh
-npm run release          # changelogen: version bump from conventional commits, CHANGELOG.md, tag, push
-npm run release:publish  # gates, pack, aggregate-only canary, publish the exact tarball (2FA), registry canary
-npm run release:pins     # opt-in: dotfiles/pi/Homebrew pins, run after a successful publish
-```
-
-`changelogen --release --push` owns versioning off the root `package.json`: it derives the
-next version from commit types, writes `CHANGELOG.md`, commits, tags `v<version>`, and
-creates the GitHub release with the generated changelog. `scripts/release/publish.mjs` reads
-that version from the root manifest, syncs the aggregate package and README pins, runs the
-gates, packs and canaries the exact tarball, publishes it with a terminal 2FA prompt, and
-canaries the registry copy. Deployment pins live in `scripts/release/pins.mjs` — a separate
-opt-in step, not part of the release.
-
-The root `package.json` version is the single source of truth; the aggregate
-`packages/sourcefed` version is synced from it by `release:publish`, never edited by hand.
-
-## Artifact Flow
-
-```text
-clean checkout
-  -> npm ci
-  -> npm run check
-  -> npm pack packages/sourcefed
-  -> isolated E2E suite against the tarball
-  -> local Homebrew tap test against the tarball
-  -> publish the same tarball
-  -> registry canary
-  -> update OpenCode, Pi, and Homebrew pins
-```
-
-The verifier writes `.release/manifest.json` containing the version, tarball path, SHA-256, git commit, Node version, OpenCode version, and Pi version. Publishing fails if the tarball hash, git commit, version, or working-tree state differs.
-
-## Isolation Rules
-
-- Install only the candidate `@fdcn/sourcefed` tarball and its registry dependencies in the E2E consumer. Do not install any private `@sourcefed/*` workspace package.
-- Use a fresh temporary `HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, `PI_CODING_AGENT_DIR`, and npm prefix for each host test.
-- Allocate free daemon, webhook, MCP, and mock-provider ports dynamically.
-- Give every daemon a unique `SOURCEFED_STATE_DIR`.
-- Record and terminate every child process in `finally`/trap cleanup.
-- Do not use live Jira, GitHub, Slack, or model-provider credentials. Use deterministic local HTTP stubs.
-- Release mode treats missing host binaries, skipped scenarios, timeouts, leaked processes, and stale state as failures.
-
-## Test Matrix
-
-| Surface | Required proof |
-| --- | --- |
-| Tarball | Only intended files ship; every export/bin/Pi target exists; no `.ts`/`.tsx`; no runtime import of private packages |
-| Types | A clean TypeScript consumer imports every public subpath and emits successfully |
-| CLI | The npm-created `node_modules/.bin/sourcefed` symlink runs skills, daemon, monitor CRUD, and logs |
-| Daemon | A fresh daemon starts from the packaged `dist/cli.js`, writes only to its temporary state directory, and survives a client reconnect |
-| MCP stdio | Initialize, tools/list, monitor tool call, resource read, acknowledgement, and clean shutdown |
-| MCP HTTP | Initialize and monitor calls over HTTP on an allocated port; authentication and shutdown paths |
-| Providers | Jira, GitHub, and Slack poll/webhook flows use local HTTP fixtures and persist cursors/events |
-| OpenCode server | The real host loads `exports["./server"]`, registers tools, spawns the packaged CLI, and creates a monitor |
-| OpenCode TUI | The real TUI loads `exports["./tui"]`; sidebar, `/sourcefed`, and `/sourcefed-logs` render in tmux |
-| Pi | The real host loads `pi.extensions`, spawns the packaged CLI, registers tools/commands, and reports daemon status |
-| Homebrew | A local tap installs the candidate tarball with Node, runs the bin, passes `brew test`, and uninstalls cleanly |
-
-## Package Checks
-
-Run `npm pack --json` once, then inspect the tarball directly.
-
-Required assertions:
-
-- Package name and version match the requested release.
-- `bin.sourcefed` resolves and is executable through npm's symlink.
-- Export targets exist for `.`, `./core`, `./core/storage`, `./daemon`, `./mcp`, `./server`, `./tui`, `./opencode`, `./opencode/tui`, and `./pi`.
-- `pi.extensions` resolves to `dist/pi.js`.
-- Public declarations contain no `@sourcefed/*` dependency.
-- Esbuild metadata contains no external `@sourcefed/*` dependency.
-- The installed consumer has no `node_modules/@sourcefed` directory.
-- README, LICENSE, guidance, skill data, and declarations are present.
-
-## CLI, Daemon, And MCP
-
-The CLI scenario invokes the installed bin, not `node dist/cli.js`:
+A maintainer verifies the package that users install, with isolated host state and
+no live provider credentials. A dry run builds evidence without a commit, tag,
+push, publication, deployment pin update or real Homebrew installation:
 
 ```sh
-./node_modules/.bin/sourcefed skills list
-./node_modules/.bin/sourcefed daemon --port "$PORT"
-./node_modules/.bin/sourcefed monitor create --source-type jira --issue-key PROJ-1 --name PROJ-1 --target-kind e2e --target-id cli
+npm run release:verify -- --dry-run
 ```
 
-Assertions cover human-readable list/log output, JSON mutation output, persisted monitor state, stop/start/remove, and a restart from the same state directory.
+```mermaid
+flowchart LR
+    Source["Source and version"] --> Pack["Exact tarball"]
+    Pack --> Gates["Prepublish gates"]
+    Review["Human visual review"] --> Gates
+    Gates -->|all pass| Publish["Publish identical bytes"]
+    Publish --> Registry["Fresh registry consumers"]
+    Registry --> Brew["Opt-in Homebrew upgrade"]
+    Brew -->|pass| Pins["Explicit tap-only update"]
+```
 
-The MCP scenario drives protocol frames directly. It verifies stdio and HTTP independently so CLI dispatch, transport startup, daemon ownership, tool schemas, resources, and acknowledgements are exercised.
+## Version and artifact ownership
 
-## OpenCode
+The root `package.json` supplies the version. The aggregate manifest and README
+pins match it. Version `0.4.0` is staged in the review working tree; verification
+does not create release commits or tags. The authorized versioning command is
+`npm run release` (`changelogen --release --push`); use it only when a version and
+tag operation are explicitly approved, not during a dry run.
 
-Pin the oldest supported and current supported OpenCode versions in the release matrix.
+`scripts/release/verify.mjs` packs `packages/sourcefed` once and retains the tarball
+under `.release/candidate-*/`. Every candidate gate uses those bytes. A supplied
+`--artifact <path>` verifies an existing tarball without repacking it.
 
-The server test uses an isolated OpenCode config whose only plugin is the candidate package directory. A local OpenAI-compatible stub returns a deterministic `monitor_create` tool call, then a final response. The test fails unless:
+`.release/manifest.json` records the version, SHA-256, SHA-512 npm integrity, source
+commit and fingerprint, dirty state, Node and host versions, and each gate result.
+Gate logs and Terminal Control captures live under `.release/`. Owned temporary
+consumers, process groups, host sessions and directories are cleaned up.
 
-- OpenCode resolves `exports["./server"]`.
-- `monitor_create` appears in the request sent to the model stub.
-- The tool executes exactly once.
-- A monitor is persisted in the temporary daemon state.
-- The daemon child command points at the candidate package's `dist/cli.js`.
+## Required gates
 
-The TUI test runs in a dedicated tmux session at a fixed terminal size. It starts a real session, invokes `/sourcefed` and `/sourcefed-logs`, and captures the pane. Assertions require the Sourcefed sidebar, monitor dialog title, empty/list state, notifications dialog, side padding, and absence of clipping or duplicate identifiers. UI changes also require a human live-render check before release approval.
+Every gate reports `pass`, `fail` or `blocked`. There is no skip status. A missing
+host, evidence input, timeout or dependency is a failure or blocker. Dirty-tree
+dry runs produce evidence but cannot authorize publication.
 
-## Pi
+- **Build:** `npm run check`, including release-tooling regression tests.
+- **Package:** inspect the archive; validate every export, bin, Pi target, skill
+  data, guidance, licence and declaration target; reject private runtime imports
+  and private workspace packages; verify the ordinary install contains no Pi
+  packages. `scripts/e2e/package.mjs` owns these checks.
+- **Types:** two clean NodeNext consumers emit with `strict: true` and
+  `skipLibCheck: false`; see [Type gate](#type-gate). `scripts/e2e/types.mjs` owns
+  this gate.
+- **CLI and daemon:** invoke npm’s installed bin; create, list, inspect, stop,
+  start and remove an isolated fixture monitor; read skills and logs; restart the
+  daemon from its owned state directory. `scripts/e2e/cli-daemon.mjs` reuses the
+  installed-bin integration scenario.
+- **MCP HTTP:** initialize, list/call tools, subscribe/read events, acknowledge
+  delivery and reject missing authentication. **MCP stdio:** initialize, list
+  tools, create a fixture monitor, read its resource, acknowledge an absent event
+  idempotently and close. `scripts/e2e/mcp.mjs` owns both gates.
+- **Provider polling:** Jira, GitHub and Slack use deterministic local HTTP
+  fixtures; Yab uses a local stdio MCP fixture. Verify new events and cursor
+  updates. **Webhooks:** signed GitHub and Slack requests cross a local HTTP
+  server and verify signature rejection, delivery, replay deduplication, cursor
+  persistence and acknowledgement. Jira exposes polling, not a webhook API.
+  `scripts/e2e/providers.mjs` and `scripts/e2e/webhooks.mjs` own these gates.
+- **OpenCode server:** load the installed plugin in a real private host, invoke
+  its registered tool through a provider-free test command and verify isolated
+  daemon state. Reuse `scripts/check-opencode-subscriptions.mjs` for 300 HTTP and
+  trusted HTTPS subscriptions, unrelated fetch, delivery/ack, cancellation and
+  socket cleanup. `scripts/e2e/opencode.mjs` coordinates these checks.
+- **OpenCode TUI:** `scripts/e2e/terminal.mjs` drives the actual host with Terminal
+  Control, an installed candidate, a private server and fixture monitor. It waits
+  for visible autocomplete/dialog transitions, captures sidebar, monitor and log
+  dialogs as PNG/TXT, records a timeline, then stops and prunes its own sessions.
+  The configured `termctrl` path and version are part of the evidence.
+- **Visual review:** a human reviews the exact candidate’s live-render captures
+  for padding, clipping and duplicate identifiers. Missing review evidence blocks
+  release even when automated text assertions pass.
+- **Pi:** reuse `scripts/check-optional-pi.mjs` against the existing candidate
+  consumer. Pi’s managed npm installer receives the exact tarball through its
+  documented test-only `npmCommand` wrapper, then RPC confirms extension commands.
+  The ordinary consumer and Pi-managed extension tree contain no Pi host copies.
+  The tested Pi host supplies its optional peers. No model request is sent.
 
-Pin the supported Pi version in the release matrix. Start Pi in RPC mode with the candidate package's `dist/pi.js`, isolated settings, and a unique daemon port/state directory.
+The provider-free OpenCode command exercises the registered tool directly. Model
+stub integration is not a requirement: these gates test Sourcefed’s host boundary,
+not a model’s decision to select a tool. Pi’s release boundary is its documented
+RPC/package loader; interactive Pi rendering is outside this gate.
 
-Assertions require:
+## Type gate
 
-- Extension initialization and `sourcefed` status updates.
-- Tool and `/sourcefed` command registration.
-- Daemon startup through sibling `dist/cli.js` without `@sourcefed/cli` installed.
-- Monitor creation and persisted state.
-- Clean extension and daemon shutdown.
+```mermaid
+flowchart LR
+    Tarball["Candidate tarball"] --> Library["Library consumer<br/>no host packages"]
+    Tarball --> Host["Host consumer<br/>Pi and OpenCode TUI peers"]
+    Library -->|"zero diagnostics"| Pass["types: pass"]
+    Host -->|"only pinned upstream diagnostics"| Pass
+```
 
-After npm publication, a canary installs `npm:@fdcn/sourcefed@<version>` through `pi install` and repeats initialization without `--extension`.
+The library consumer imports every entry point except `./pi`, `./tui` and
+`./opencode/tui`. It installs no host packages and must compile with zero
+diagnostics. Public declarations depend on valibot 1.4.2 and @types/json-schema
+7.0.15, so both are production dependencies.
 
-## Homebrew
+The host consumer installs the peers that Pi and OpenCode supply at runtime: Pi
+0.83.0, TypeBox 1.3.10, OpenCode plugin/theme 2.2.7, OpenTUI 0.8.1 and Solid
+1.9.19. Its source assigns each host entry to the host's own type and holds three
+`@ts-expect-error` checks; an `any` declaration makes those directives unused
+and fails compilation:
 
-Before npm publication, generate a temporary local tap formula whose URL is the candidate tarball's `file://` URL and whose SHA-256 comes from `.release/manifest.json`.
+```ts
+export const extension: (pi: ExtensionAPI) => Promise<void> = sourcefedExtension
+
+export const definitions: Plugin.Definition[] = [tui, openTui]
+
+// @ts-expect-error OpenCode supplies the plugin context
+void tui.setup()
+```
+
+Host entry points depend on third-party declarations that fail strict library
+checking. The gate keeps `skipLibCheck: false`, so TypeScript still checks every
+Sourcefed `.d.ts` file and the consumer. It accepts only these diagnostic sources:
+
+| Source | Code | File |
+| --- | --- | --- |
+| pi-ai JSON model imports | TS1543 | `@earendil-works/pi-ai/dist/providers/*.models.d.ts` |
+| Anthropic SDK undici-types paths | TS2307 | `@anthropic-ai/sdk/internal/types.d.mts` |
+| Google GenAI optional MCP SDK | TS2307 | `@google/genai/dist/node/node.d.ts` |
+| OpenTUI `KeyHandler.emit` with @types/node 26 | TS2416 | `@opentui/core/lib/KeyHandler.d.ts` |
+
+Each rule names its code, file and, where needed, message. Any other diagnostic,
+including one in Sourcefed's declarations or the consumer, fails the gate. The
+manifest records how many diagnostics each rule accepted. Logs are
+`.release/types-library.log` and `.release/types-host.log`.
+
+## Isolation
+
+Every gate uses an explicit environment allowlist: PATH, fixed terminal/CI values,
+owned HOME, all XDG directories, npm cache, Pi settings and explicit OPENCODE_DB.
+Only fixture settings are added. Inherited provider tokens, credentials, config
+content and service discovery variables are absent.
+
+The developer integration harness uses the same policy. Scenario-local fake
+credentials are explicit; child environments do not merge the caller’s variables.
+Process groups have deadlines and bounded output. Cleanup terminates only owned
+processes. Terminal Control uses a short private socket directory and fresh state;
+pruning applies only to that profile.
+
+## Operator evidence
+
+Supply visual evidence with `--tui-proof <file>`. Each JSON record binds to the
+exact version, commit, SHA-256 and npm integrity. It names the
+operator and host version, records a timestamp within 24 hours, and explicitly
+attests human review, isolation and cleanup. Attached command logs and rendered
+captures each have a checked SHA-256.
+
+The fields are the evidence contract, not a generated approval:
+
+```json
+{
+  "gate": "opencode-tui",
+  "version": "0.4.0",
+  "commit": "…",
+  "sha256": "…",
+  "integrity": "sha512-…",
+  "operator": "…",
+  "hostVersion": "…",
+  "at": "…",
+  "humanReviewed": true,
+  "isolated": true,
+  "cleanedUp": true,
+  "checks": { "real-termctrl": true },
+  "files": [{ "path": "monitors.png", "sha256": "…" }]
+}
+```
+
+The visual checks are `real-termctrl`, `sidebar`, `monitor-dialog`, `logs-dialog`,
+`padding`, `no-clipping` and `no-duplicate-ids`. Every named check is required.
+Mechanical validation checks binding and completeness; the named operator
+supplies the truth of the human review.
+
+## Post-publication Homebrew check
+
+Homebrew reports `pending: post-publish` in dry runs. Its formula consumes the
+published npm artifact, and Apple Silicon’s supported custom prefix is at most
+13 bytes. The release check therefore uses the real prefix only after explicit
+operator opt-in, after registry verification, and before the public tap update:
 
 ```sh
-brew tap-new sourcefed/e2e
-brew install sourcefed/e2e/sourcefed
-brew test sourcefed/e2e/sourcefed
-sourcefed skills list
-brew uninstall sourcefed
+npm run release:homebrew -- --confirm-real-homebrew
+npm run release:pins -- --tap
 ```
 
-The formula test uses `sourcefed skills list`; it does not depend on an existing daemon. After npm publication, update the permanent tap to the registry tarball URL, run `brew fetch --force`, install it in a clean prefix, and verify the reported version and CLI behavior.
-
-## Registry Canary
-
-After publishing the verified tarball:
-
-1. Wait until the registry version and `latest` tag are readable.
-2. Install `@fdcn/sourcefed@<version>` into a fresh consumer.
-3. Repeat CLI import/bin checks.
-4. Let OpenCode auto-install the exact registry version and verify server and TUI entrypoints.
-5. Let Pi install the exact registry version and verify extension initialization.
-6. Update dotfiles and Homebrew only after all canaries pass.
-
-A canary failure blocks configuration/tap updates. Deprecate the failed npm version with a clear message and prepare a new patch release from a clean commit.
-
-## Automation Layout
-
-```text
-scripts/release/verify.mjs
-scripts/release/publish.mjs
-scripts/e2e/package.mjs
-scripts/e2e/cli-daemon.mjs
-scripts/e2e/mcp.mjs
-scripts/e2e/opencode.mjs
-scripts/e2e/pi.mjs
-scripts/e2e/homebrew.mjs
-scripts/e2e/registry-canary.mjs
+```mermaid
+flowchart TD
+    Check["Installed sourcefed 0.3.8<br/>clean tap checkout"] --> Swap["Candidate formula<br/>in local tap checkout"]
+    Swap --> Upgrade["brew upgrade<br/>stevenjpx2/sourcefed/sourcefed"]
+    Upgrade --> Test["brew test and skills list"]
+    Test -->|pass| Keep["0.4.0 linked<br/>0.3.8 keg retained"]
+    Test -->|fail| Restore["Uninstall 0.4.0 keg<br/>relink 0.3.8"]
+    Keep --> Tap["Tap-only pin update"]
 ```
 
-`scripts/integration.mjs` remains the developer integration suite. The release verifier owns aggregate-only isolation and never accepts a skipped scenario.
+Homebrew loads formulae only from taps; installing from a file path is disabled.
+`scripts/release/homebrew.mjs` therefore writes the candidate formula, with the
+verified version and tarball SHA-256, over the installed tap's local checkout. It
+restores the original bytes after the upgrade, test or failure; the public tap is
+unchanged. The candidate is retained as `.release/homebrew-formula.rb`.
 
-## CI And Approval
+The check requires one installed Sourcefed keg from `stevenjpx2/sourcefed`, linked
+`opt` and `bin` paths and a clean tap checkout. Outdated Sourcefed dependencies
+block it, and the upgrade dry run must name no dependency. Auto-update, cleanup,
+autoremove and dependent upgrades are disabled, so the previous keg remains.
 
-- Linux runs package, types, CLI, daemon, MCP, provider, OpenCode server, and Pi tests.
-- macOS runs the same suite plus OpenCode TUI tmux and Homebrew tests.
-- CI uploads the tarball and `.release/manifest.json` as immutable artifacts.
-- Publishing requires green required jobs and human npm 2FA approval.
-- The release summary records every scenario, host version, duration, and artifact hash.
+On success, the candidate stays installed and linked. The previous keg remains
+for rollback until `brew cleanup sourcefed`. On failure, `brew uninstall`
+removes only the opt-linked candidate keg, and `brew link` relinks the single
+remaining keg. Inventory, `opt` and `bin` links and tap status must then equal
+the initial snapshot. On either result, every formula other than Sourcefed must be
+unchanged.
 
-## Implementation Order
+The manifest records published npm integrity, tarball and formula hashes, the
+previous and installed versions, the Homebrew version and `.release/homebrew.log`.
+The formula's own test, `sourcefed monitor sources`, uses the operator's default
+daemon URL. The real Homebrew path requires live validation after publication; a
+dry run checks only the consent guard and formula preparation.
 
-1. Split aggregate-only release E2E from the private-workspace integration consumer.
-2. Add tarball/export/declaration validation and exact-artifact manifesting.
-3. Add deterministic CLI, daemon, and MCP scenarios.
-4. Add deterministic OpenCode server stub and tmux TUI scenario.
-5. Add Pi settings/package scenario.
-6. Add local and registry Homebrew scenarios.
-7. Add release verification/publish scripts and CI jobs.
-8. Require `release:verify` output for every publish.
+Homebrew's manual documents `upgrade`, `test`, `link`, `uninstall` and the
+environment controls. Version 7.0.13 source defines the multi-keg choices:
+`uninstall` without `--force` resolves the opt-linked keg, and `link` selects the
+latest remaining keg.
 
-## Completion Criteria
+See [installation](https://docs.brew.sh/Installation),
+[custom prefixes](https://docs.brew.sh/Support-Tiers#custom-prefixes), and the
+[Homebrew environment controls](https://docs.brew.sh/Manpage#environment).
 
-The release pipeline is complete when a clean checkout can produce one tarball, pass every scenario without skips, publish that exact tarball after human approval, pass registry canaries, and update OpenCode, Pi, and Homebrew pins only after verification.
+Terminal Control source builds require Rust 1.93+, Zig 0.15.2 and Git. The reviewed
+Mac already provides `termctrl 1.2.1`; verification uses that binary without a
+Rust/Zig installation or upgrade. Other runners can select `--termctrl <path>`.
+See the [Terminal Control README](https://github.com/anomalyco/terminal-control).
+
+## Publication and registry checks
+
+`npm run release:publish -- --dry-run` performs verification only. A real publish
+requires a clean main branch, an unused version and every prepublish gate passing
+with zero skips. The script syncs version metadata into an explicit local commit
+before verification; it checks the commit, source fingerprint, version and
+artifact hash again before pushing and publishing the identical archive.
+
+Authentication and interactive npm 2FA belong only to the publish operation, not
+to the scrubbed test environment. Credential/2FA failures stop the release.
+
+The registry canary is a post-publication gate. An unpublished version reports
+`blocked`, not success. It requires the expected integrity and latest tag, a
+fresh registry install, installed CLI checks, real OpenCode loading and real
+`pi install npm:@fdcn/sourcefed@<version>` without tarball substitution.
+
+Registry auto-install and TUI evidence use `--registry-proof <file>`, gate name
+`registry-hosts`, and checks `opencode-auto-install`, `opencode-server`,
+`opencode-tui` and `pi-registry-install`. A registry failure leaves the release
+incomplete and blocks all pin updates. Review a failing published artifact before
+choosing deprecation and a new patch release. Resume verification with:
+
+```sh
+npm run release:registry -- --registry-proof registry-evidence.json
+```
+
+## Explicit deployment steps
+
+Pin updates are independently opt-in. No arguments performs no live action and
+returns an error. A successful registry manifest is required before mutations:
+
+```sh
+npm run release:pins -- --tap --dry-run
+
+npm run release:pins -- --tap
+```
+
+`--tap` updates only the formula URL/checksum and its tap commit. `--dotfiles`
+updates only tracked OpenCode pins in the selected dotfiles checkout. `--pi`
+installs only into the user’s Pi settings. Flags can be combined deliberately.
+The tap step also requires a passing Homebrew result. It verifies registry
+integrity and checksum against the manifest, checks
+for user changes, and uses a fast-forward-only pull.
+
+## Security findings
+
+The candidate’s production audit runs as part of the installed-package probe.
+Only the reviewed moderate advisories GHSA-3g3m-2fjr-6pw4 and
+GHSA-g3hv-75wg-m249 are accepted for this release; any other advisory or any high
+or critical finding fails the gate. The raw counts and advisory IDs stay in the
+manifest. This is a documented release decision, not a claim of zero findings.

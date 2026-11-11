@@ -1,121 +1,77 @@
 #!/usr/bin/env node
+import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
-import { createHash } from "node:crypto"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import os from "node:os"
+import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { fileURLToPath } from "node:url"
+import { environment } from "../e2e/harness.mjs"
+import { options, root, sourceState, verify } from "./verify.mjs"
+import { assertPublishable } from "./artifact.mjs"
+import { verifyRegistry } from "./registry.mjs"
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
-const otpIndex = process.argv.indexOf("--otp")
-const OTP = otpIndex >= 0 ? process.argv[otpIndex + 1] : undefined
+const args = process.argv.slice(2)
+const otpIndex = args.indexOf("--otp")
+const otp = otpIndex < 0 ? undefined : args.splice(otpIndex, 2)[1]
+const settings = options(args)
 
-// The version comes from the root package.json, bumped by `npm run release` (changelogen).
-const VERSION = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version
-if (!/^\d+\.\d+\.\d+$/.test(VERSION)) {
-  console.error("no valid version in root package.json — run `npm run release` first")
-  process.exit(1)
+if (settings["dry-run"]) {
+  const report = await verify(settings)
+  console.log("dry run: no sync commit, push, publication or pin update")
+  if (!report.verified) process.exitCode = 1
+} else {
+  await publish()
 }
 
-const AGG_PKG = path.join(ROOT, "packages/sourcefed/package.json")
-const READMES = [path.join(ROOT, "README.md"), path.join(ROOT, "packages/sourcefed/README.md")]
-const REL = path.join(ROOT, ".release")
-const TARBALL = path.join(REL, `fdcn-sourcefed-${VERSION}.tgz`)
-
-// 1. working tree and branch
-const status = execFileSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8" }).trim()
-if (status) fail(`working tree is not clean:\n${status}`)
-const branch = execFileSync("git", ["branch", "--show-current"], { cwd: ROOT, encoding: "utf8" }).trim()
-if (branch !== "main") fail(`release from main, not ${branch}`)
-
-// 2. refuse to re-publish a version the registry already serves (resumable otherwise)
-if (registryVersion(VERSION) === VERSION) fail(`@fdcn/sourcefed ${VERSION} is already on the registry — bump with \`npm run release\` first`)
-
-// sync the aggregate manifest and README pins to the released version
-const manifest = JSON.parse(readFileSync(AGG_PKG, "utf8"))
-writeFileSync(AGG_PKG, JSON.stringify({ ...manifest, version: VERSION }, null, 2) + "\n")
-for (const readme of READMES) {
-  writeFileSync(readme, readFileSync(readme, "utf8").replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${VERSION}`))
-}
-
-// 3. gates
-run("npm", ["run", "check"], ROOT)
-run("npm", ["run", "integration"], ROOT)
-
-// 4. pack the exact artifact
-rmSync(REL, { recursive: true, force: true })
-mkdirSync(REL, { recursive: true })
-run("npm", ["pack", "--pack-destination", REL], path.join(ROOT, "packages/sourcefed"))
-const sha = createHash("sha256").update(readFileSync(TARBALL)).digest("hex")
-
-// 5. aggregate-only canary
-const consumer = mkdtempSync(path.join(os.tmpdir(), "sf-release-"))
-writeFileSync(path.join(consumer, "package.json"), JSON.stringify({ name: "sf-canary", version: "0.0.0", private: true, type: "module" }))
-run("npm", ["install", "--no-audit", "--no-fund", TARBALL], consumer)
-const skills = execFileSync("./node_modules/.bin/sourcefed", ["skills", "list"], { cwd: consumer, encoding: "utf8" })
-if (!skills.includes("core:")) fail("canary: skills list failed")
-if (existsSync(path.join(consumer, "node_modules/@sourcefed"))) fail("canary: private @sourcefed packages leaked into the consumer")
-rmSync(consumer, { recursive: true, force: true })
-
-// 6. commit + push the sync (skip when nothing changed on a resume)
-run("git", ["add", "packages/sourcefed/package.json", ...READMES], ROOT)
-if (execFileSync("git", ["status", "--porcelain"], { cwd: ROOT, encoding: "utf8" }).trim()) {
-  run("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${VERSION}`], ROOT)
-  run("git", ["push", "origin", "main"], ROOT)
-}
-
-// 7. publish the exact tarball (OTP prompts on the terminal unless --otp is given)
-run("npm", ["publish", TARBALL, "--access", "public", ...(OTP ? ["--otp", OTP] : [])], ROOT)
-
-// 8. registry canary
-waitForRegistry(VERSION)
-const canary = mkdtempSync(path.join(os.tmpdir(), "sf-registry-"))
-writeFileSync(path.join(canary, "package.json"), JSON.stringify({ name: "sf-registry-canary", version: "0.0.0", private: true, type: "module" }))
-run("npm", ["install", "--no-audit", "--no-fund", `@fdcn/sourcefed@${VERSION}`], canary)
-execFileSync("./node_modules/.bin/sourcefed", ["skills", "list"], { cwd: canary, encoding: "utf8" })
-rmSync(canary, { recursive: true, force: true })
-
-writeManifest(VERSION, sha)
-console.log(`\nreleased @fdcn/sourcefed@${VERSION} (${sha.slice(0, 12)})\n  tarball: ${TARBALL}\n  GitHub release: created from the v${VERSION} tag by the Release workflow`)
-console.log("  deployment pins: `npm run release:pins`")
-
-function writeManifest(version, sha256) {
-  const record = {
-    version,
-    tarball: TARBALL,
-    sha256,
-    commit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),
-    node: process.version,
-    at: new Date().toISOString(),
-  }
-  writeFileSync(path.join(REL, "manifest.json"), JSON.stringify(record, null, 2) + "\n")
-}
-
-function registryVersion(version) {
+async function publish() {
+  assert.equal(git(["status", "--porcelain"]).trim(), "", "release requires a clean checkout")
+  assert.equal(git(["branch", "--show-current"]).trim(), "main")
+  const version = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version
+  assert.ok(/^\d+\.\d+\.\d+$/.test(version))
+  const isolated = await environment(path.join(root, ".release/publish-preflight"))
+  // Registry lookup failures are errors, never evidence that a version is unused.
+  const versions = JSON.parse(execFileSync("npm", ["view", "@fdcn/sourcefed", "versions", "--json"], {
+    env: isolated, encoding: "utf8", timeout: 30000,
+  }))
+  assert.ok(!versions.includes(version), `${version} is already published; run npm run release first`)
+  await sync(version)
+  const record = await verify(settings)
+  await assertPublishable(record, await sourceState(isolated), version)
+  mutate("git", ["push", "origin", "main"])
+  await assertPublishable(record, await sourceState(isolated), version)
+  // Only this mutation uses the operator's npm authentication and interactive 2FA.
+  mutate("npm", ["publish", record.artifact, "--access", "public", ...(otp ? ["--otp", otp] : [])])
   try {
-    return execFileSync("npm", ["view", `@fdcn/sourcefed@${version}`, "version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim()
-  } catch {
-    return ""
+    await verifyRegistry(record, settings)
+  } catch (error) {
+    console.error(`Published ${version}, but registry canary is INCOMPLETE. No pins updated. ${error}`)
+    console.error("Resume with npm run release:registry -- --registry-proof <file> after reviewing the failure.")
+    throw error
   }
+  console.log(`released @fdcn/sourcefed@${version} ${record.integrity}; pins remain opt-in`)
 }
 
-function waitForRegistry(version) {
-  const deadline = Date.now() + 5 * 60_000
-  while (Date.now() < deadline) {
-    const latest = execFileSync("npm", ["view", "@fdcn/sourcefed", "dist-tags.latest"], { encoding: "utf8" }).trim()
-    if (latest === version) return
-    console.log(`[release] waiting for the registry to serve ${version} (currently ${latest})...`)
-    execFileSync("sleep", ["15"])
+async function sync(version) {
+  const manifest = path.join(root, "packages/sourcefed/package.json")
+  const value = JSON.parse(await readFile(manifest, "utf8"))
+  await writeFile(manifest, JSON.stringify({ ...value, version }, null, 2) + "\n")
+  for (const name of ["README.md", "packages/sourcefed/README.md"]) {
+    const file = path.join(root, name)
+    await writeFile(file, (await readFile(file, "utf8")).replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${version}`))
   }
-  fail(`registry never served ${version}`)
+  const env = await environment(path.join(root, ".release/sync"))
+  execFileSync("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit"], { cwd: root, env, timeout: 120000 })
+  const changed = git(["status", "--porcelain"]).trim()
+  if (!changed) return
+  const files = ["packages/sourcefed/package.json", "package-lock.json", "README.md", "packages/sourcefed/README.md"]
+  for (const line of changed.split("\n")) assert.ok(files.includes(line.trim().slice(2).trim()), `unexpected release sync change: ${line}`)
+  mutate("git", ["add", "--", ...files])
+  mutate("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${version}`])
 }
 
-function run(command, args, cwd) {
-  console.log(`$ ${command} ${args.join(" ")}`)
-  execFileSync(command, args, { cwd, stdio: "inherit" })
+function git(args) {
+  return execFileSync("git", args, { cwd: root, encoding: "utf8", timeout: 30000 })
 }
 
-function fail(message) {
-  console.error(`\n[release] ${message}`)
-  process.exit(1)
+function mutate(command, args) {
+  // Authenticated publication/push is deliberately outside the scrubbed test environment.
+  execFileSync(command, args, { cwd: root, stdio: "inherit", timeout: 180000 })
 }
