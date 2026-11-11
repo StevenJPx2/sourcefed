@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.1
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.0...v0.4.1)
+
+### 🩹 Fixes
+
+- **opencode:** Add the guidance to compaction and generate requests too ([80bd4ff](https://github.com/StevenJPx2/sourcefed/commit/80bd4ff))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.4.0
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.3.8...v0.4.0)
