@@ -1,5 +1,6 @@
+import assert from "node:assert/strict"
 import { build } from "esbuild"
-import { chmodSync, copyFileSync, cpSync, mkdirSync, rmSync } from "node:fs"
+import { chmodSync, copyFileSync, cpSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -16,6 +17,18 @@ const ENTRIES = [
   { name: "pi", source: "adapters/pi/src/index.ts" },
 ]
 
+const PI_HOST_PACKAGES = [
+  "@earendil-works/pi-coding-agent",
+  "@earendil-works/pi-tui",
+  "typebox",
+]
+const manifest = JSON.parse(readFileSync(path.join(ROOT, "packages/sourcefed/package.json"), "utf8"))
+for (const name of PI_HOST_PACKAGES) {
+  assert.equal(manifest.dependencies?.[name], undefined, `${name} must be host-provided`)
+  assert.equal(manifest.peerDependencies?.[name], "*", `${name} must accept the Pi host version`)
+  assert.equal(manifest.peerDependenciesMeta?.[name]?.optional, true, `${name} must be optional`)
+}
+
 const EXTERNAL = [
   "node:*",
   "@modelcontextprotocol/server",
@@ -29,7 +42,8 @@ const EXTERNAL = [
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 
-await build({
+const bundled = await build({
+  metafile: true,
   entryPoints: ENTRIES.map(({ name, source }) => ({ in: path.join(ROOT, source), out: name })),
   outdir: OUT,
   entryNames: "[name]",
@@ -41,6 +55,8 @@ await build({
   external: EXTERNAL,
   logLevel: "warning",
 })
+
+verifyHostIsolation(bundled.metafile)
 
 await build({
   entryPoints: [path.join(ROOT, "packages/cli/src/index.ts")],
@@ -59,3 +75,30 @@ copyFileSync(path.join(ROOT, "GUIDANCE.md"), path.join(OUT, "guidance.md"))
 cpSync(path.join(ROOT, "packages/cli/src/skills/data"), path.join(OUT, "data"), { recursive: true })
 
 console.log(`built public package dist (${ENTRIES.length} entries + tui bundle + skills data)`)
+
+function verifyHostIsolation(metafile) {
+  for (const [file, output] of Object.entries(metafile.outputs)) {
+    if (!output.entryPoint || file.endsWith("/pi.js")) continue
+    const pending = [file]
+    const visited = new Set()
+
+    while (pending.length) {
+      const current = pending.pop()
+      if (visited.has(current)) continue
+      visited.add(current)
+      const chunk = metafile.outputs[current]
+      assert.ok(chunk, `missing build metadata for ${current}`)
+
+      for (const imported of chunk.imports) {
+        if (imported.external) {
+          const isHostPackage = PI_HOST_PACKAGES.some((name) =>
+            imported.path === name || imported.path.startsWith(name + "/"),
+          )
+          assert.ok(!isHostPackage, `${file} imports ${imported.path}`)
+        } else {
+          pending.push(imported.path)
+        }
+      }
+    }
+  }
+}

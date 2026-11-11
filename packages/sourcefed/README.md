@@ -38,6 +38,41 @@ OpenCode loads this package as both a server and a TUI plugin from one entry:
 
 The package exposes `./server`, `./tui`, `./opencode`, `./opencode/tui`, and `./pi` entrypoints for hosts that load them directly.
 
+## Host dependencies
+
+Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui` and
+`typebox` through its extension loader. Sourcefed declares each as an optional
+peer with a `"*"` range and leaves their imports external in `dist/pi.js`, matching
+[Pi’s package contract](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md#dependencies).
+OpenCode, CLI, daemon and MCP entry points do not import these peers. A plain npm
+install downloads no Pi host packages; a Pi host supplies its own versions.
+
+Install the extension through the Pi host:
+
+```sh
+pi install npm:@fdcn/sourcefed@0.3.8
+```
+
+The workspace uses pinned development dependencies to compile and test the Pi
+adapter. Those development tools are separate from the published runtime.
+
+From a checkout, verify the packed package:
+
+```sh
+npm run check
+
+node scripts/check-optional-pi.mjs
+```
+
+The check packs and installs Sourcefed into fresh temporary directories. It
+verifies the absence of Pi packages, imports the non-Pi libraries, loads the
+installed plugin in a private OpenCode host, and loads the Pi-managed extension
+in RPC mode without a model request. The Pi installer uses an isolated
+`npmCommand` wrapper that substitutes the local tarball for the package’s npm
+spec; the registry contains only published releases. The check needs OpenCode,
+OpenSSL and the workspace’s Pi development host. Its audit output includes
+remaining OpenCode dependencies and does not certify a clean security gate.
+
 ## Skills
 
 ```sh

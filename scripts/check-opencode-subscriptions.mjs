@@ -5,7 +5,11 @@ import { createServer } from "node:http"
 import { createServer as createHttpsServer } from "node:https"
 import os from "node:os"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import { freePort, sleep, stopProcess } from "./integration/harness.mjs"
+
+// An optional installed package directory exercises both its plugin and transport.
+const packageDir = process.argv[2] ? path.resolve(process.argv[2]) : undefined
 
 // Explicitly isolated, provider-free probe of the Bun embedded in the installed host.
 await main()
@@ -28,12 +32,17 @@ async function main() {
     const report = path.join(dir, "report.json")
     const plugin = path.join(config, "plugins", "probe.js")
     await writeFile(plugin, pluginSource(servers.map((server) => server.url), report))
+    if (packageDir) {
+      const entry = pathToFileURL(path.join(packageDir, "dist/opencode.js")).href
+      await writeFile(path.join(config, "plugins", "sourcefed.js"), `export { default } from ${JSON.stringify(entry)}`)
+    }
     await writeFile(path.join(config, "opencode.json"), JSON.stringify({ plugins: ["*"] }))
     const port = await freePort()
     const env = { PATH: process.env.PATH, HOME: path.join(dir, "home"), TMPDIR: dir,
       XDG_CONFIG_HOME: path.join(dir, "config"), XDG_DATA_HOME: path.join(dir, "data"),
       XDG_STATE_HOME: path.join(dir, "state"), XDG_CACHE_HOME: path.join(dir, "cache"),
       OPENCODE_DB: path.join(dir, "opencode.sqlite"), NODE_EXTRA_CA_CERTS: cert,
+      SOURCEFED_DAEMON_URL: servers[0].url,
       BUN_CONFIG_MAX_HTTP_REQUESTS: "256" }
     host = spawn("opencode", ["serve", "--hostname", "127.0.0.1", "--port", String(port)], {
       cwd: project, env, stdio: ["ignore", "pipe", "pipe"],
@@ -89,7 +98,9 @@ async function fixture(tls) {
   let acknowledgements = 0
   const handler = (request, response) => {
     const endpoint = new URL(request.url, "http://localhost")
-    if (endpoint.pathname !== "/health" && request.headers.authorization !== "Bearer isolated-test-token") {
+    const authenticated = request.headers.authorization === "Bearer isolated-test-token"
+    const bridgeRead = packageDir && endpoint.pathname === "/rpc" && !request.headers.authorization
+    if (endpoint.pathname !== "/health" && !authenticated && !bridgeRead) {
       response.writeHead(401)
       response.end("unauthorized")
       return
@@ -102,9 +113,18 @@ async function fixture(tls) {
       response.writeHead(200, { "content-type": "text/event-stream" })
       response.write(target.id === "pending" ? ": waiting\n\n" : "data: " + JSON.stringify({ type: "subscribed", target }) + "\n\n")
     } else if (endpoint.pathname === "/rpc") {
-      request.resume()
-      acknowledgements++
-      response.end('{"result":{"ok":true}}')
+      let body = ""
+      request.on("data", (chunk) => { body += chunk })
+      request.on("end", () => {
+        const { method } = JSON.parse(body)
+        if (!authenticated && method !== "monitor.list") {
+          response.writeHead(401)
+          response.end("unauthorized")
+          return
+        }
+        if (method === "monitor.ack") acknowledgements++
+        response.end(JSON.stringify({ result: { ok: true, monitors: [] } }))
+      })
     } else {
       const target = { kind: "test", id: "0" }
       const event = { id: "budget-event", monitorID: "budget-monitor", target, queuedAt: "2026-11-10T00:00:00Z",
@@ -125,19 +145,31 @@ async function fixture(tls) {
 }
 
 function pluginSource(urls, report) {
-  const entry = new URL("../packages/sourcefed/dist/daemon.js", import.meta.url).href
+  const entry = packageDir
+    ? pathToFileURL(path.join(packageDir, "dist/daemon.js")).href
+    : new URL("../packages/sourcefed/dist/daemon.js", import.meta.url).href
   return [
     "import { connectDaemonClient } from " + JSON.stringify(entry) + ";",
     'import { writeFile } from "node:fs/promises";',
     "const exercise = " + exercise.toString() + ";",
-    'export default { id: "sourcefed-fetch-budget-probe", async setup(ctx) {',
+    // Setup returns so the host can finish loading the installed Sourcefed plugin.
+    'export default { id: "sourcefed-fetch-budget-probe", setup(ctx) { void (async () => {',
     "const result = { opencode: ctx.app.version, bun: Bun.version, revision: Bun.revision, transports: [] };",
-    "try { for (const url of " + JSON.stringify(urls) + ") {",
+    "try {",
+    ...(packageDir ? [
+      "const deadline = Date.now() + 15000;",
+      "while (!(await ctx.tool.list()).some(tool => tool.id === 'monitor_list')) {",
+      "  if (Date.now() > deadline) throw new Error('installed Sourcefed plugin did not register tools');",
+      "  await new Promise(resolve => setTimeout(resolve, 20));",
+      "}",
+      "result.installedPluginLoaded = true;",
+    ] : []),
+    "for (const url of " + JSON.stringify(urls) + ") {",
     '  const client = await connectDaemonClient({ name: "isolated-runtime-probe", url, token: "isolated-test-token" });',
     "  try { result.transports.push(await exercise(client, url)); } finally { await client.close(); }",
     "} } catch (error) { result.error = String(error); }",
     "await writeFile(" + JSON.stringify(report) + ", JSON.stringify(result));",
-    "} };",
+    "})(); } };",
   ].join("\n")
 }
 

@@ -65,8 +65,13 @@ Pi:
 pi install npm:@fdcn/sourcefed@0.3.8
 ```
 
-Restart the host after installing. OpenCode resolves the server entrypoint from
-`exports["./server"]` and the TUI plugin from `exports["./tui"]`; Pi loads the extension
+Pi supplies its extension SDK, TUI widgets and TypeBox. These are optional peers
+of Sourcefed; OpenCode-only and CLI installs download no Pi host packages. See
+[host dependencies](packages/sourcefed/README.md#host-dependencies) for the package
+contract and verification command.
+
+OpenCode resolves the server entrypoint from `exports["./server"]` and the TUI
+plugin from `exports["./tui"]`; Pi loads the extension
 from the package's `pi` metadata. Both register `monitor_create`/`monitor_list`/
 `monitor_status`/`monitor_start`/`monitor_stop` tools, and `/sourcefed` plus
 `/sourcefed-logs` dialogs. `/sourcefed` lists the session's monitors with the selected
