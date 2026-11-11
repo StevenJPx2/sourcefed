@@ -15,13 +15,13 @@
     "src"
   ],
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "@sourcefed/core": "*",
     "@sourcefed/daemon": "*",
-    "zod": "4.4.3"
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.0.0"
+    "@modelcontextprotocol/client": "2.4.0"
   },
   "private": true
 }
