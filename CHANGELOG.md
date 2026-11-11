@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.4.2
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.1...v0.4.2)
+
+### 🩹 Fixes
+
+- **package:** Name the repository, which npm provenance requires ([181040c](https://github.com/StevenJPx2/sourcefed/commit/181040c))
+
+### 🏡 Chore
+
+- Sync @fdcn/sourcefed to 0.4.1 ([620262b](https://github.com/StevenJPx2/sourcefed/commit/620262b))
+
+### 🤖 CI
+
+- Publish release tags to npm with trusted publishing ([0522c67](https://github.com/StevenJPx2/sourcefed/commit/0522c67))
+
+### ❤️ Contributors
+
+- Steven John <stevenjpx2@gmail.com>
+
 ## v0.4.1
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.0...v0.4.1)
