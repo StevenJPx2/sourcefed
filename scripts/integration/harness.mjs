@@ -21,7 +21,7 @@ export function cleanEnvironment(extra = {}) {
     PI_CODING_AGENT_DIR: path.join(isolation, "pi"),
     OPENCODE_DB: path.join(isolation, "opencode.sqlite"),
     npm_config_cache: path.join(isolation, "npm"),
-    npm_config_fetch_timeout: "20000", npm_config_fetch_retries: "0",
+    npm_config_fetch_timeout: "60000", npm_config_fetch_retries: "2",
     ...extra,
   }
   for (const key of ["HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "PI_CODING_AGENT_DIR"]) {

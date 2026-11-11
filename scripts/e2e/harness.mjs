@@ -17,8 +17,9 @@ export async function environment(directory, extra = {}) {
     PI_CODING_AGENT_DIR: path.join(directory, "pi"),
     OPENCODE_DB: path.join(directory, "opencode.sqlite"),
     npm_config_cache: path.join(directory, "npm"),
-    npm_config_ignore_scripts: "true", npm_config_fetch_timeout: "20000",
-    npm_config_fetch_retries: "0",
+    // Bounded retries absorb transient registry timeouts without unbounded waits.
+    npm_config_ignore_scripts: "true", npm_config_fetch_timeout: "60000",
+    npm_config_fetch_retries: "2",
     ...extra,
   }
   await Promise.all([directory, env.HOME, env.XDG_CONFIG_HOME, env.XDG_DATA_HOME,
