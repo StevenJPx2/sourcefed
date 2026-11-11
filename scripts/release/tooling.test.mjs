@@ -3,11 +3,18 @@ import { test } from "node:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { assertPublishable } from "./artifact.mjs"
+import { assertPublishable, withVersion } from "./artifact.mjs"
 import { assertPinsAllowed, selections } from "./pins.mjs"
 import { candidateFormula, homebrewOptions, otherFormulae } from "./homebrew.mjs"
 import { Blocked, command, digest, environment, evidence } from "../e2e/harness.mjs"
 import { classifyDiagnostics, parseDiagnostics } from "../e2e/types.mjs"
+
+test("version sync preserves manifest formatting", () => {
+  const source = '{\n  "name": "@fdcn/sourcefed",\n  "version": "0.3.8",\n  "peerDependenciesMeta": {\n    "typebox": { "optional": true }\n  },\n  "dependencies": { "x": { "version": "1.0.0" } }\n}\n'
+  assert.equal(withVersion(source, "0.3.8"), source)
+  assert.equal(withVersion(source, "0.4.0"), source.replace('"version": "0.3.8"', '"version": "0.4.0"'))
+  assert.throws(() => withVersion("{}", "0.4.0"))
+})
 
 test("pins have no implicit live actions and tap selection excludes other operations", () => {
   assert.throws(() => selections([]), /choose/)

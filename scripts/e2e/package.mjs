@@ -14,7 +14,7 @@ export async function packageGate(context) {
   const entries = listing.trim().split("\n")
   assert.ok(entries.every((p) => p.startsWith("package/") && !p.split("/").includes("..")))
   assert.ok(!entries.some((p) => /(?<!\.d)\.tsx?$/.test(p)), "no TypeScript runtime sources")
-  await command("npm", ["install", artifact, "--omit=dev", "--ignore-scripts", "--no-audit"], { cwd: consumer, env })
+  await command("npm", ["install", artifact, "--omit=dev", "--ignore-scripts", "--no-audit"], { cwd: consumer, env, timeout: 300_000 })
   const packageDir = path.join(consumer, "node_modules/@fdcn/sourcefed")
   const manifest = JSON.parse(await readFile(path.join(packageDir, "package.json"), "utf8"))
   assert.equal(manifest.name, "@fdcn/sourcefed")

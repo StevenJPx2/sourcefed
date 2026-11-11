@@ -93,7 +93,7 @@ async function compile(context, name, devDependencies, source) {
   const env = await environment(path.join(directory, "isolation"))
   await mkdir(directory, { recursive: true })
   await writeFile(path.join(directory, "package.json"), JSON.stringify({ private: true, type: "module", devDependencies }))
-  await command("npm", ["install", context.artifact, "--ignore-scripts", "--no-audit"], { cwd: directory, env })
+  await command("npm", ["install", context.artifact, "--ignore-scripts", "--no-audit"], { cwd: directory, env, timeout: 300_000 })
   await writeFile(path.join(directory, "contract.ts"), source)
   await writeFile(path.join(directory, "tsconfig.json"), JSON.stringify({
     compilerOptions: { strict: true, noEmit: false, declaration: true,

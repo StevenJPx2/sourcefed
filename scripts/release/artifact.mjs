@@ -1,6 +1,13 @@
 import assert from "node:assert/strict"
 import { digest } from "../e2e/harness.mjs"
 
+// Edits only the top-level version so release syncs preserve manifest formatting.
+export function withVersion(source, version) {
+  const pattern = /^(  "version": ")[^"]*(",?)$/m
+  assert.match(source, pattern, "manifest has no top-level version")
+  return source.replace(pattern, `$1${version}$2`)
+}
+
 export async function assertPublishable(record, state, version) {
   assert.equal(record.schema, 1)
   assert.equal(record.verified, true, "required release gates have not passed")

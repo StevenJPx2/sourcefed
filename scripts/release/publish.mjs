@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { environment } from "../e2e/harness.mjs"
 import { options, root, sourceState, verify } from "./verify.mjs"
-import { assertPublishable } from "./artifact.mjs"
+import { assertPublishable, withVersion } from "./artifact.mjs"
 import { verifyRegistry } from "./registry.mjs"
 
 const args = process.argv.slice(2)
@@ -51,11 +51,9 @@ async function publish() {
 
 async function sync(version) {
   const manifest = path.join(root, "packages/sourcefed/package.json")
-  const value = JSON.parse(await readFile(manifest, "utf8"))
-  await writeFile(manifest, JSON.stringify({ ...value, version }, null, 2) + "\n")
+  await rewrite(manifest, (source) => withVersion(source, version))
   for (const name of ["README.md", "packages/sourcefed/README.md"]) {
-    const file = path.join(root, name)
-    await writeFile(file, (await readFile(file, "utf8")).replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${version}`))
+    await rewrite(path.join(root, name), (source) => source.replace(/@fdcn\/sourcefed@[\d.]+/g, `@fdcn/sourcefed@${version}`))
   }
   const env = await environment(path.join(root, ".release/sync"))
   execFileSync("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit"], { cwd: root, env, timeout: 120000 })
@@ -65,6 +63,12 @@ async function sync(version) {
   for (const line of changed.split("\n")) assert.ok(files.includes(line.trim().slice(2).trim()), `unexpected release sync change: ${line}`)
   mutate("git", ["add", "--", ...files])
   mutate("git", ["commit", "-m", `chore: sync @fdcn/sourcefed to ${version}`])
+}
+
+async function rewrite(file, change) {
+  const source = await readFile(file, "utf8")
+  const next = change(source)
+  if (next !== source) await writeFile(file, next)
 }
 
 function git(args) {
