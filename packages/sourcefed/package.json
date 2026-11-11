@@ -3,6 +3,11 @@
   "version": "0.4.1",
   "description": "Live Jira, GitHub, and Slack monitoring for agent hosts: CLI, daemon, MCP server, and host plugins.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StevenJPx2/sourcefed.git",
+    "directory": "packages/sourcefed"
+  },
   "type": "module",
   "bin": {
     "sourcefed": "./dist/cli.js"
