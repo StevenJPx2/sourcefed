@@ -1,14 +1,14 @@
-import { assert, assertEqual, removeDir, tempDir } from "./harness.mjs"
+import { assert, assertEqual, daemonEntry, removeDir, startJsonServer, tempDir } from "./harness.mjs"
 
 process.env.SOURCEFED_GITHUB_WEBHOOK_SECRET = ""
 process.env.SOURCEFED_SLACK_SIGNING_SECRET = ""
 process.env.GITHUB_TOKEN = "it-test-token"
-const { SourcefedDaemon } = await import("@sourcefed/daemon")
+const { SourcefedDaemon } = await import(daemonEntry())
 
 let graphqlCalls = 0
 let commentCalls = 0
 const realFetch = globalThis.fetch
-globalThis.fetch = async (url, init) => {
+const fixtureResponse = async (url, init) => {
   const href = String(url)
   if (href.startsWith("https://api.github.com/graphql")) {
     graphqlCalls += 1
@@ -78,6 +78,15 @@ globalThis.fetch = async (url, init) => {
   return new Response(JSON.stringify({ message: "unexpected" }), { status: 404 })
 }
 
+const httpFixture = await startJsonServer(async (request, body) => {
+  const response = await fixtureResponse("https://api.github.com" + request.url, { method: request.method, body })
+  return { status: response.status, body: await response.json() }
+})
+globalThis.fetch = (url, init) => {
+  const original = new URL(String(url))
+  return realFetch(`http://127.0.0.1:${httpFixture.port}${original.pathname}${original.search}`, init)
+}
+
 const dir = await tempDir("sourcefed-it-github-")
 const daemon = new SourcefedDaemon({ stateDir: dir })
 try {
@@ -109,5 +118,6 @@ try {
 } finally {
   await daemon.stop().catch(() => {})
   globalThis.fetch = realFetch
+  await httpFixture.stop()
   await removeDir(dir)
 }

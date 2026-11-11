@@ -1,7 +1,7 @@
 import path from "node:path"
 import { spawn } from "node:child_process"
 import { spawnSync } from "node:child_process"
-import { assert, removeDir, sleep, startHostDaemon, stopProcess, tempDir } from "./harness.mjs"
+import { assert, cleanEnvironment, removeDir, sleep, startHostDaemon, stopProcess, tempDir } from "./harness.mjs"
 
 const piBin = (() => {
   try {
@@ -12,8 +12,7 @@ const piBin = (() => {
 })()
 
 if (!piBin) {
-  console.log("SKIP pi-package: no pi binary on PATH")
-  process.exit(0)
+  throw new Error("missing required Pi host: pi-package: no pi binary on PATH")
 }
 
 const dir = await tempDir("sourcefed-it-pi-pkg-")
@@ -22,11 +21,10 @@ const sessionDir = path.join(dir, "sessions")
 const stateDir = path.join(dir, "state")
 const extensionPath = path.resolve("node_modules/@fdcn/sourcefed/dist/pi.js")
 
-const env = {
-  ...process.env,
+const env = cleanEnvironment({
   PI_CODING_AGENT_DIR: agentDir,
   SOURCEFED_STATE_DIR: stateDir,
-}
+})
 const daemon = await startHostDaemon(env)
 env.SOURCEFED_DAEMON_URL = daemon.url
 

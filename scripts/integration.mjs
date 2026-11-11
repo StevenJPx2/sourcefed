@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process"
 import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { cleanEnvironment } from "./integration/harness.mjs"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const INTEGRATION = path.join(ROOT, ".integration")
@@ -24,10 +25,10 @@ run("node", ["scripts/build.mjs"], ROOT)
 rmSync(INTEGRATION, { recursive: true, force: true })
 mkdirSync(path.join(CONSUMER, "scenarios"), { recursive: true })
 
-const dependencies = { "@modelcontextprotocol/client": "2.0.0" }
+const dependencies = { "@modelcontextprotocol/client": "2.4.0" }
 for (const packageDir of PACKAGES) {
   const manifest = JSON.parse(readFileSync(path.join(ROOT, packageDir, "package.json"), "utf8"))
-  execFileSync("npm", ["pack", path.join(ROOT, packageDir), "--pack-destination", INTEGRATION], { cwd: ROOT, stdio: "inherit" })
+  execFileSync("npm", ["pack", path.join(ROOT, packageDir), "--pack-destination", INTEGRATION], { cwd: ROOT, env: cleanEnvironment(), stdio: "inherit", timeout: 120_000 })
   const tarball = `${manifest.name.replace(/^@/, "").replace("/", "-")}-${manifest.version}.tgz`
   dependencies[manifest.name] = `file:${path.join(INTEGRATION, tarball)}`
 }
@@ -51,7 +52,7 @@ let passed = 0
 const failures = []
 for (const name of scenarioNames.sort()) {
   try {
-    execFileSync(process.execPath, [path.join(CONSUMER, "scenarios", name)], { cwd: CONSUMER, stdio: "inherit", timeout: 180_000 })
+    execFileSync(process.execPath, [path.join(CONSUMER, "scenarios", name)], { cwd: CONSUMER, env: cleanEnvironment(), stdio: "inherit", timeout: 180_000 })
     console.log(`\n\u001b[32mPASS\u001b[0m ${name}`)
     passed += 1
   } catch (error) {
@@ -68,5 +69,5 @@ if (failures.length > 0) {
 
 function run(command, args, cwd) {
   console.log(`$ ${command} ${args.join(" ")}`)
-  execFileSync(command, args, { cwd, stdio: "inherit" })
+  execFileSync(command, args, { cwd, env: cleanEnvironment(), stdio: "inherit", timeout: 120_000 })
 }

@@ -10,6 +10,10 @@ import { freePort, sleep, stopProcess } from "./integration/harness.mjs"
 const exec = promisify(execFile)
 const root = fileURLToPath(new URL("../", import.meta.url))
 const host = path.join(root, "node_modules/@earendil-works/pi-coding-agent")
+const option = (name) => {
+  const index = process.argv.indexOf("--" + name)
+  return index < 0 ? undefined : process.argv[index + 1]
+}
 
 await main()
 
@@ -18,17 +22,7 @@ async function main() {
   const env = isolatedEnvironment(dir)
 
   try {
-    const consumer = path.join(dir, "consumer")
-    await mkdir(consumer, { recursive: true })
-    await writeFile(path.join(consumer, "package.json"), JSON.stringify({
-      name: "sourcefed-plain-install-proof", private: true, type: "module",
-    }))
-    const packed = JSON.parse(await run("npm", [
-      "pack", path.join(root, "packages/sourcefed"), "--json", "--pack-destination", dir,
-    ], root, env))
-    const archive = path.join(dir, packed[0].filename)
-    await run("npm", ["install", archive, "--omit=dev", "--ignore-scripts", "--no-audit"], consumer, env)
-    const installed = path.join(consumer, "node_modules/@fdcn/sourcefed")
+    const { consumer, archive, installed } = await candidate(dir, env)
     await assertNoPi(consumer)
     const audit = await auditConsumer(consumer, env)
     await run(process.execPath, ["--input-type=module", "--eval", [
@@ -49,11 +43,32 @@ async function main() {
   }
 }
 
+async function candidate(dir, env) {
+  if (option("installed")) {
+    const installed = path.resolve(option("installed"))
+    const archive = option("tarball") ? path.resolve(option("tarball")) : undefined
+    assert.ok(archive || process.argv.includes("--registry"), "installed probes require exact tarball or --registry")
+    return { installed, archive, consumer: path.resolve(installed, "../../..") }
+  }
+  const consumer = path.join(dir, "consumer")
+  await mkdir(consumer, { recursive: true })
+  await writeFile(path.join(consumer, "package.json"), JSON.stringify({
+    name: "sourcefed-plain-install-proof", private: true, type: "module",
+  }))
+  const packed = JSON.parse(await run("npm", [
+    "pack", path.join(root, "packages/sourcefed"), "--json", "--pack-destination", dir,
+  ], root, env))
+  const archive = path.join(dir, packed[0].filename)
+  await run("npm", ["install", archive, "--omit=dev", "--ignore-scripts", "--no-audit"], consumer, env)
+  return { consumer, archive, installed: path.join(consumer, "node_modules/@fdcn/sourcefed") }
+}
+
 function isolatedEnvironment(dir) {
   return {
     PATH: process.env.PATH, HOME: path.join(dir, "home"), TMPDIR: dir, CI: "true",
     XDG_CONFIG_HOME: path.join(dir, "config"), XDG_DATA_HOME: path.join(dir, "data"),
     XDG_STATE_HOME: path.join(dir, "state"), XDG_CACHE_HOME: path.join(dir, "cache"),
+    OPENCODE_DB: path.join(dir, "opencode.sqlite"),
     npm_config_cache: path.join(dir, "cache/npm"), npm_config_ignore_scripts: "true",
     npm_config_fetch_timeout: "20000", npm_config_fetch_retries: "0",
   }
@@ -113,7 +128,8 @@ async function checkPi(dir, archive, installed, baseEnv) {
   await Promise.all([agent, project].map((p) => mkdir(p, { recursive: true })))
   const wrapper = path.join(dir, "npm-fixture.mjs")
   // Exercise Pi's npm installer without publishing: substitute only this package spec.
-  await writeFile(wrapper, [
+  if (archive) {
+    await writeFile(wrapper, [
     'import { spawnSync } from "node:child_process";',
     "const spec = " + JSON.stringify(`${manifest.name}@${manifest.version}`) + ";",
     "const archive = " + JSON.stringify(archive) + ";",
@@ -121,7 +137,8 @@ async function checkPi(dir, archive, installed, baseEnv) {
     'const result = spawnSync("npm", args, { stdio: "inherit", env: process.env, timeout: 90000 });',
     'if (result.error) throw result.error; process.exit(result.status ?? 1);',
   ].join("\n"))
-  await writeFile(path.join(agent, "settings.json"), JSON.stringify({ npmCommand: [process.execPath, wrapper] }))
+    await writeFile(path.join(agent, "settings.json"), JSON.stringify({ npmCommand: [process.execPath, wrapper] }))
+  }
   await run(process.execPath, [cli, "install", `npm:${manifest.name}@${manifest.version}`], project, env)
   await assertNoPi(path.join(agent, "npm"))
   const managed = path.join(agent, "npm/node_modules/@fdcn/sourcefed/dist/pi.js")

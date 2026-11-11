@@ -2,7 +2,7 @@ import path from "node:path"
 import { assert, assertEqual, freePort, removeDir, sleep, startJsonServer, startProcess, tempDir, waitForReachable } from "./harness.mjs"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 
-const CLI = path.resolve("node_modules/@sourcefed/cli/dist/index.js")
+const CLI = path.resolve("node_modules/@fdcn/sourcefed/dist/cli.js")
 const dir = await tempDir("sourcefed-it-mcp-")
 const port = await freePort()
 const url = `http://127.0.0.1:${port}`
@@ -35,6 +35,7 @@ const jiraMock = await startJsonServer((request, body) => {
 
 const env = {
   SOURCEFED_STATE_DIR: dir,
+  SOURCEFED_DAEMON_TOKEN: "release-test-token",
   SOURCEFED_JIRA_BASE_URL: `http://127.0.0.1:${jiraMock.port}`,
   ATLASSIAN_EMAIL: "it@example.com",
   ATLASSIAN_API_KEY: "test-key",
@@ -43,8 +44,13 @@ const mcpProcess = startProcess(process.execPath, [CLI, "mcp", "--http", "--port
 try {
   await waitForReachable(url)
 
+  const unauthorized = await fetch(`${url}/mcp`, { method: "POST", body: "{}", signal: AbortSignal.timeout(1_000) })
+  assertEqual(unauthorized.status, 401, "MCP rejects unauthenticated requests")
+
   const client = new Client({ name: "sourcefed-it", version: "0.0.0" }, { versionNegotiation: { mode: "auto" } })
-  const transport = new StreamableHTTPClientTransport(new URL(`${url}/mcp`))
+  const transport = new StreamableHTTPClientTransport(new URL(`${url}/mcp`), {
+    requestInit: { headers: { authorization: "Bearer release-test-token" } },
+  })
   await client.connect(transport)
 
   const target = { kind: "it", id: "mcp-1" }

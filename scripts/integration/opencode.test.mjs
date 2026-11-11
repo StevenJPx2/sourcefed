@@ -2,7 +2,7 @@ import path from "node:path"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { spawn, spawnSync } from "node:child_process"
 import { pathToFileURL } from "node:url"
-import { assert, freePort, removeDir, sleep, startProcess, stopProcess, tempDir, waitForReachable } from "./harness.mjs"
+import { assert, freePort, removeDir, sleep, startJsonServer, startProcess, stopProcess, tempDir, waitForReachable } from "./harness.mjs"
 
 const opencode = spawnSync("which", ["opencode"], { encoding: "utf8" }).stdout?.trim()
 if (!opencode) throw new Error("OpenCode release integration requires the real host on PATH")
@@ -16,9 +16,12 @@ const port = await freePort()
 const daemonPort = await freePort()
 const daemonURL = `http://127.0.0.1:${daemonPort}`
 // Never inherit provider credentials, shared service discovery or user configuration.
-const env = { PATH: process.env.PATH, HOME: path.join(dir, "home"), XDG_CONFIG_HOME: config,
+const fixture = await startJsonServer(() => ({ body: { fields: { status: { name: "Open" } }, changelog: { histories: [] }, comments: [] } }))
+const env = { SOURCEFED_JIRA_BASE_URL: `http://127.0.0.1:${fixture.port}`,
+  ATLASSIAN_EMAIL: "release@example.invalid", ATLASSIAN_API_KEY: "fixture-key", PATH: process.env.PATH, HOME: path.join(dir, "home"), XDG_CONFIG_HOME: config,
   XDG_DATA_HOME: path.join(dir, "data"), XDG_STATE_HOME: path.join(dir, "xdg-state"),
   XDG_CACHE_HOME: path.join(dir, "cache"), TMPDIR: dir,
+  OPENCODE_DB: path.join(dir, "opencode.sqlite"),
   SOURCEFED_STATE_DIR: state, SOURCEFED_DAEMON_URL: daemonURL }
 const plugins = path.join(config, "opencode", "plugins")
 await Promise.all([project, state, plugins, env.HOME].map((directory) => mkdir(directory, { recursive: true })))
@@ -47,6 +50,7 @@ try {
 } finally {
   if (host) await stopProcess(host)
   await daemon.stop()
+  await fixture.stop()
   await removeDir(dir)
 }
 

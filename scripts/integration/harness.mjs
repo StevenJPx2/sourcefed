@@ -1,10 +1,38 @@
 import { spawn, spawnSync } from "node:child_process"
 import { mkdtemp, rm } from "node:fs/promises"
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { createServer } from "node:http"
 import { createServer as createPortReservation } from "node:net"
 import { once } from "node:events"
 import os from "node:os"
 import path from "node:path"
+
+let isolation
+
+export function cleanEnvironment(extra = {}) {
+  if (!isolation) {
+    isolation = mkdtempSync(path.join(os.tmpdir(), "sourcefed-env-"))
+    process.once("exit", () => rmSync(isolation, { recursive: true, force: true }))
+  }
+  const env = {
+    PATH: process.env.PATH, HOME: path.join(isolation, "home"), TMPDIR: isolation,
+    XDG_CONFIG_HOME: path.join(isolation, "config"), XDG_DATA_HOME: path.join(isolation, "data"),
+    XDG_STATE_HOME: path.join(isolation, "state"), XDG_CACHE_HOME: path.join(isolation, "cache"),
+    PI_CODING_AGENT_DIR: path.join(isolation, "pi"),
+    OPENCODE_DB: path.join(isolation, "opencode.sqlite"),
+    npm_config_cache: path.join(isolation, "npm"),
+    npm_config_fetch_timeout: "20000", npm_config_fetch_retries: "0",
+    ...extra,
+  }
+  for (const key of ["HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "PI_CODING_AGENT_DIR"]) {
+    mkdirSync(env[key], { recursive: true })
+  }
+  return env
+}
+
+export function daemonEntry() {
+  return process.env.SOURCEFED_TEST_DAEMON_ENTRY ?? "@sourcefed/daemon"
+}
 
 export function assert(condition, message) {
   if (!condition) throw new Error(message ?? "assertion failed")
@@ -48,6 +76,7 @@ export async function waitForReachable(url, timeoutMs = 20_000) {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ method: "daemon.sourceTypes" }),
+        signal: AbortSignal.timeout(1_000),
       })
       if (response) return
     } catch {
@@ -61,7 +90,7 @@ export async function waitForReachable(url, timeoutMs = 20_000) {
 export function startProcess(command, args, options = {}) {
   const proc = spawn(command, args, {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env },
+    env: cleanEnvironment(options.env),
     stdio: options.silent ? ["ignore", "ignore", "ignore"] : ["ignore", "inherit", "inherit"],
   })
   let stopped = false
@@ -121,7 +150,7 @@ export async function startJsonServer(handler) {
 }
 
 export function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { cwd: options.cwd, env: { ...process.env, ...options.env }, encoding: "utf8" })
+  const result = spawnSync(command, args, { cwd: options.cwd, env: cleanEnvironment(options.env), encoding: "utf8", timeout: options.timeout ?? 120_000, maxBuffer: 4 * 1024 * 1024 })
   if (result.status !== 0) {
     throw new Error(`command failed (${command} ${args.join(" ")}): ${result.stderr || result.stdout}`)
   }

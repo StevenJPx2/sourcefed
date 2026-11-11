@@ -1,6 +1,6 @@
 import { chmod, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { assert, assertEqual, removeDir, tempDir } from "./harness.mjs"
+import { assert, assertEqual, daemonEntry, removeDir, tempDir } from "./harness.mjs"
 
 process.env.SOURCEFED_GITHUB_WEBHOOK_SECRET = ""
 process.env.SOURCEFED_SLACK_SIGNING_SECRET = ""
@@ -33,7 +33,7 @@ function reply(id, result) { process.stdout.write(JSON.stringify({ jsonrpc: "2.0
 await chmod(fakeYab, 0o755)
 process.env.SOURCEFED_YAB_COMMAND = fakeYab
 
-const { SourcefedDaemon } = await import("@sourcefed/daemon")
+const { SourcefedDaemon } = await import(daemonEntry())
 const daemon = new SourcefedDaemon({ stateDir: path.join(dir, "state") })
 try {
   await daemon.start()

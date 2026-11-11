@@ -1,4 +1,4 @@
-import { assert, assertEqual, removeDir, startJsonServer, tempDir } from "./harness.mjs"
+import { assert, assertEqual, daemonEntry, removeDir, startJsonServer, tempDir } from "./harness.mjs"
 
 let jiraCommentCalls = 0
 const jiraMock = await startJsonServer((request, body) => {
@@ -31,7 +31,7 @@ process.env.SOURCEFED_GITHUB_WEBHOOK_SECRET = ""
 process.env.SOURCEFED_SLACK_SIGNING_SECRET = ""
 process.env.ATLASSIAN_EMAIL = "it@example.com"
 process.env.ATLASSIAN_API_KEY = "test-key"
-const { SourcefedDaemon } = await import("@sourcefed/daemon")
+const { SourcefedDaemon } = await import(daemonEntry())
 
 const dir = await tempDir("sourcefed-it-jira-")
 const daemon = new SourcefedDaemon({ stateDir: dir })
