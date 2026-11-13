@@ -8,6 +8,7 @@ const ENTRIES = [
   { entry: "providers/github/src/index.ts", outfile: "providers/github/dist/index.js" },
   { entry: "providers/slack/src/index.ts", outfile: "providers/slack/dist/index.js" },
   { entry: "providers/yab/src/index.ts", outfile: "providers/yab/dist/index.js" },
+  { entry: "providers/schedule/src/index.ts", outfile: "providers/schedule/dist/index.js" },
   { entry: "packages/daemon/src/index.ts", outfile: "packages/daemon/dist/index.js" },
   { entry: "packages/mcp/src/index.ts", outfile: "packages/mcp/dist/index.js" },
   { entry: "packages/cli/src/index.ts", outfile: "packages/cli/dist/index.js" },

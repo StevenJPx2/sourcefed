@@ -1,0 +1,23 @@
+{
+  "name": "@sourcefed/provider-schedule",
+  "version": "0.2.0",
+  "description": "Cron schedule monitor provider for Sourcefed.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@sourcefed/core": "*",
+    "croner": "11.0.0",
+    "valibot": "1.4.2"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "private": true
+}

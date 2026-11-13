@@ -48,7 +48,7 @@ function createCreateInput(params: Record<string, unknown>): DaemonCreateInput {
     name: params.name,
     sourceType: params.sourceType,
   }
-  const text = ["issueKey", "repo", "channelId", "threadTs", "threadUrl", "url", "space", "match", "exclude", "assignee", "author", "query", "jql"] as const
+  const text = ["issueKey", "repo", "channelId", "threadTs", "threadUrl", "url", "space", "match", "exclude", "assignee", "author", "query", "jql", "cron", "job", "timezone"] as const
   for (const key of text) {
     if (typeof params[key] === "string") input[key] = params[key]
   }

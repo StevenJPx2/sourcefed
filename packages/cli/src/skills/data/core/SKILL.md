@@ -22,6 +22,7 @@ only that source's fields.
 - **GitHub PR**: `monitor_create({ name: "PR #42", source: { type: "github", repo: "owner/repo", prNumber: 42 } })`
 - **Jira issues matching JQL**: `monitor_create({ name: "agent", source: { type: "jira-query", jql: "project = PROJ AND labels = agent" } })`
 - **GitHub issues with labels**: `monitor_create({ name: "build", source: { type: "github-issues", repo: "owner/repo", labels: ["agent:build"] } })`
+- **Schedule**: `monitor_create({ name: "nightly", source: { type: "schedule", cron: "0 2 * * *", job: "nightly-audit", timezone: "Asia/Kolkata" } })`
 - **Slack thread**: `monitor_create({ name: "thread", source: { type: "slack", threadUrl: "<thread-url>" } })`
 - **Whole Slack DM**: `monitor_create({ name: "DM with Alex", source: { type: "slack", channelId: "D0123456789" } })`
 - **Yab feed**: `monitor_create({ name: "inbox", source: { type: "yab", url: "https://mail.google.com/mail/u/0/feed/atom", space: "Personal", match: "interview|offer", exclude: "newsletter" } })`
@@ -36,6 +37,9 @@ You will be notified of:
 - **GitHub issues**: `item.matched` when an open issue starts carrying every label (and
   matches `assignee`, `author` or `query`), `item.unmatched` when it stops or closes. The
   first poll is silent unless `includeExisting`.
+- **Schedule**: `schedule.fired` at each cron time; times that came while sourcefed was
+  stopped or the Mac slept arrive as one `schedule.missed` with the latest time and a
+  `missed` count. It never decides whether the work runs.
 - **Slack thread**: new replies in the thread.
 - **Slack DM**: new top-level messages in the DM. Slack monitors are always detect-only
   and never reply.

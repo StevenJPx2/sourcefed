@@ -19,6 +19,7 @@ const PACKAGES = [
   "providers/github",
   "providers/slack",
   "providers/yab",
+  "providers/schedule",
 ]
 
 run("node", ["scripts/build.mjs"], ROOT)

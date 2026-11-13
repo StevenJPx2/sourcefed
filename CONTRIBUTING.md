@@ -13,7 +13,7 @@ regression tests.
 
 The abstract `Monitor` consolidates transport fallback and recovery and composes whichever
 generic `PollMonitor` and `WebhookMonitor` transports a source exposes as class attributes.
-Each provider is its own package (`@sourcefed/provider-{jira,github,slack}`) with monitor and
+Each provider is its own package (`@sourcefed/provider-{jira,github,slack,yab,schedule}`) with monitor and
 event modules; the built-in registry (`SOURCE_MAP`) is composed by the daemon, which imports
 the provider packages directly. Jira exposes only polling; GitHub and Slack expose both. Do
 not add source-specific transport branches to tools, scheduling, or the daemon.
