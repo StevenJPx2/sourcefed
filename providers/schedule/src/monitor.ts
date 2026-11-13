@@ -1,5 +1,5 @@
 import { Monitor, type MonitorCreateInput, type SourceInput } from "@sourcefed/core"
-import { scheduleCron, systemTimezone } from "./firings.ts"
+import { checkSchedule, systemTimezone } from "./firings.ts"
 import { schedulePollMonitor } from "./poll.ts"
 import { ScheduleSourceSchema, type ScheduleSource } from "./schema.ts"
 
@@ -33,7 +33,7 @@ export class ScheduleMonitor extends Monitor<ScheduleSource> {
     if (!job) return { error: "job is required for a schedule monitor" }
 
     try {
-      scheduleCron(cron, input.timezone ?? systemTimezone()).nextRun()
+      checkSchedule(cron, input.timezone ?? systemTimezone())
     } catch (error) {
       return { error: `invalid schedule: ${error instanceof Error ? error.message : String(error)}` }
     }

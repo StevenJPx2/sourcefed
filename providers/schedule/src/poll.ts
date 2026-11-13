@@ -1,7 +1,7 @@
 import * as v from "valibot"
 import { PollMonitor, toMonitorEvent, type SourceEvent } from "@sourcefed/core"
 import { firedEvent, missedEvent } from "./events.ts"
-import { firingsBetween, scheduleCron, systemTimezone, zonedIso } from "./firings.ts"
+import { firingsBetween, systemTimezone, zonedIso } from "./firings.ts"
 import { ScheduleCursorSchema, type ScheduleCursor, type ScheduleSource } from "./schema.ts"
 
 /** A single time found within this long of it is on time; anything later was missed. */
@@ -18,7 +18,7 @@ export function pollSchedule(source: ScheduleSource, cursorRaw: unknown, now: Da
   if (!parsed.success) return { cursor, events: [] }
 
   const timezone = source.timezone ?? systemTimezone()
-  const firings = firingsBetween(scheduleCron(source.cron, timezone), new Date(parsed.output.checkedAt), now)
+  const firings = firingsBetween(source.cron, timezone, new Date(parsed.output.checkedAt), now)
   if (!firings) return { cursor, events: [] }
 
   const at = zonedIso(firings.latest, timezone)

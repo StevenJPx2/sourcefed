@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { describe, test } from "node:test"
-import { MISSED_COUNT_LIMIT, firingsBetween, scheduleCron, zonedIso } from "./firings.ts"
+import { MISSED_COUNT_LIMIT, firingsBetween, zonedIso } from "./firings.ts"
 import { ScheduleMonitor } from "./monitor.ts"
 import { pollSchedule } from "./poll.ts"
 import type { ScheduleSource } from "./schema.ts"
@@ -62,19 +62,16 @@ describe("schedule", () => {
   })
 
   test("in spring, a time the clock skips fires once, at the new hour", () => {
-    const cron = scheduleCron("30 2 * * *", "America/New_York")
-
-    const day = firingsBetween(cron, new Date("2027-03-13T12:00:00Z"), new Date("2027-03-14T12:00:00Z"))
+    const day = firingsBetween("30 2 * * *", "America/New_York", new Date("2027-03-13T12:00:00Z"), new Date("2027-03-14T12:00:00Z"))
 
     assert.equal(day?.count, 1)
     assert.equal(zonedIso(day!.latest, "America/New_York"), "2027-03-14T03:00:00-04:00")
   })
 
   test("in autumn, a time the clock repeats fires once", () => {
-    const cron = scheduleCron("30 1 * * *", "America/New_York")
     const source = { ...nightly, cron: "30 1 * * *", timezone: "America/New_York" }
 
-    const day = firingsBetween(cron, new Date("2026-10-31T12:00:00Z"), new Date("2026-11-01T12:00:00Z"))
+    const day = firingsBetween(source.cron, source.timezone, new Date("2026-10-31T12:00:00Z"), new Date("2026-11-01T12:00:00Z"))
     const prompt = pollSchedule(source, checked("2026-11-01T05:29:50Z"), new Date("2026-11-01T05:30:05Z"))
     const repeat = pollSchedule(source, prompt.cursor, new Date("2026-11-01T06:30:05Z"))
 
