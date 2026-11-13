@@ -1,11 +1,13 @@
 import { deliverWebhook } from "./deliver-webhook.ts"
 import { heartbeatWebhooks } from "./heartbeat-webhooks.ts"
+import { wakeMonitors } from "./wake-monitors.ts"
 import type { MonitorContext } from "#sourcefed/types"
 
 const MAX_WEBHOOK_BODY_BYTES = 1024 * 1024
 
 export async function handleWebhook(request: Request, context: MonitorContext): Promise<Response> {
-  const source = context.sourceForWebhookPath(new URL(request.url).pathname)
+  const path = new URL(request.url).pathname
+  const source = context.sourceForWebhookPath(path)
   if (!source || !source.webhook) return new Response("not found", { status: 404 })
   const body = await readBody(request)
   if (body === undefined) return new Response("payload too large", { status: 413 })
@@ -21,6 +23,7 @@ export async function handleWebhook(request: Request, context: MonitorContext): 
   const deliveryId = source.webhook.deliveryId(request, payload)
   if (!deliveryId) return new Response("missing delivery id", { status: 400 })
   const eventName = source.webhook.eventName(request, payload)
+  await wakeMonitors(context, path, payload, eventName)
   const event = source.webhook.parse(payload, eventName, deliveryId)
   if (!event) return new Response("ignored", { status: 202 })
   void heartbeatWebhooks(context, source, event.source).catch((error) => console.error("[sourcefed] webhook heartbeat failed:", error))

@@ -2,7 +2,7 @@ import * as v from "valibot"
 import type { MonitorContext, MonitorEvent, MonitorOptions, MonitorSchema } from "#sourcefed/types"
 import type { MonitorSource, SourceInput, SourceInputSchema } from "#sourcefed/sources"
 import type { Delivery, MonitorCreateInput } from "#sourcefed/types"
-import type { MonitorRecord } from "./types"
+import type { MonitorRecord, MonitorWake } from "./types"
 import type { PollMonitor } from "./poll"
 import type { WebhookMonitor } from "./webhook"
 
@@ -22,6 +22,7 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
 
   readonly poll?: PollMonitor<TSource>
   readonly webhook?: WebhookMonitor<TSource>
+  readonly wake?: MonitorWake<TSource>
 
   protected constructor(options: MonitorOptions<TSource>) {
     this.type = options.type
@@ -78,7 +79,8 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
     // A failed poll stamps __lastAttemptAt and a successful one __lastPolledAt; the later one counts.
     const lastAttemptAt = Math.max(Number(current.cursors.__lastAttemptAt ?? 0), Number(current.cursors.__lastPolledAt ?? 0))
     const pollIntervalSec = current.pollIntervalSec || 60
-    if (lastAttemptAt && Date.now() - lastAttemptAt < pollIntervalSec * 1000) return 0
+    const woken = Number(current.cursors.__wakeAt ?? 0) > lastAttemptAt
+    if (!woken && lastAttemptAt && Date.now() - lastAttemptAt < pollIntervalSec * 1000) return 0
     return this.poll.run(context, this, current)
   }
 
