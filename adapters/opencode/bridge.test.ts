@@ -305,6 +305,25 @@ test("periodic refresh recovers a failed daemon connection and discovers externa
   } finally { await hub.remove(owner) }
 })
 
+test("a refresh a moment short of the period still retries a failed connection", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 0 })
+  const h = harness()
+  let attempts = 0
+  const hub = new OpenCodeSubscriptions(async () => {
+    if (++attempts === 1) throw new Error("temporary daemon startup failure")
+    return h.daemon
+  })
+  const owner = h.instance().bridge
+  try {
+    await hub.add(owner)
+    t.mock.timers.tick(14_990)
+    await hub.refresh()
+
+    assert.equal(attempts, 2)
+    assert.deepEqual(h.subscribed, ["ses_live"])
+  } finally { await hub.remove(owner) }
+})
+
 test("tools retain their own bridge instead of using the last loaded instance", async () => {
   const a = harness()
   const b = harness()
