@@ -260,6 +260,13 @@ The registry canary is a post-publication gate. An unpublished version reports
 fresh registry install, installed CLI checks, real OpenCode loading and real
 `pi install npm:@fdcn/sourcefed@<version>` without tarball substitution.
 
+The Release workflow packs the tarball again on CI, whose gzip differs from the
+verifying Mac's, so the registry's integrity can differ from the candidate's.
+The canary then downloads the registry tarball and compares the uncompressed
+tar. The same entries pass: the manifest names the registry tarball, kept as
+`.release/registry-sourcefed-<version>.tgz`, for Homebrew and the tap, and
+keeps the verified one as `verifiedArtifact`. Different entries stay `blocked`.
+
 Registry auto-install and TUI evidence use `--registry-proof <file>`, gate name
 `registry-hosts`, and checks `opencode-auto-install`, `opencode-server`,
 `opencode-tui` and `pi-registry-install`. A registry failure leaves the release

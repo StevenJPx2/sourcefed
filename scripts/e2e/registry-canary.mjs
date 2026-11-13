@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { mkdir, writeFile } from "node:fs/promises"
 import path from "node:path"
-import { Blocked, command, environment, evidence } from "./harness.mjs"
+import { Blocked, command, contentDigest, digest, environment, evidence } from "./harness.mjs"
 import { piGate } from "./pi.mjs"
 
 export async function registryGate(context) {
@@ -16,8 +16,12 @@ export async function registryGate(context) {
     throw error
   }
   const metadata = JSON.parse(lookup.stdout)
+  // The Release workflow packs on CI, whose gzip differs from this Mac's, so the
+  // registry may hold the verified entries in other compressed bytes.
+  let repacked
   if (metadata["dist.integrity"] !== context.integrity) {
-    throw new Blocked(`registry ${context.version} does not contain this exact artifact; registry verification is post-publish`)
+    repacked = await samePackage(context, env, metadata["dist.integrity"])
+    if (!repacked) throw new Blocked(`registry ${context.version} does not contain this exact artifact; registry verification is post-publish`)
   }
   assert.equal(metadata.version, context.version)
   assert.equal(metadata["dist-tags.latest"], context.version)
@@ -31,5 +35,20 @@ export async function registryGate(context) {
   const visual = await evidence(context, context.options["registry-proof"], "registry-hosts", [
     "opencode-auto-install", "opencode-server", "opencode-tui", "pi-registry-install",
   ])
-  return { integrity: metadata["dist.integrity"], hosts, visual }
+  return { integrity: metadata["dist.integrity"], hosts, visual, ...(repacked ? { repacked } : {}) }
+}
+
+/**
+ * The registry tarball, when its uncompressed tar is the verified artifact's: its
+ * path, sha256 and integrity, for Homebrew and the tap to use. Undefined otherwise.
+ */
+async function samePackage(context, env, integrity) {
+  const directory = path.join(context.work, "registry-tarball")
+  await mkdir(directory, { recursive: true })
+  const packed = JSON.parse((await command("npm", ["pack", `@fdcn/sourcefed@${context.version}`, "--json", "--pack-destination", directory],
+    { cwd: directory, env, timeout: 60_000 })).stdout)
+  const artifact = path.join(directory, packed[0].filename)
+  assert.equal(packed[0].integrity, integrity, "npm pack fetched the registry tarball")
+  if (await contentDigest(artifact) !== await contentDigest(context.artifact)) return undefined
+  return { artifact, sha256: await digest(artifact), integrity, contentSha256: await contentDigest(artifact) }
 }

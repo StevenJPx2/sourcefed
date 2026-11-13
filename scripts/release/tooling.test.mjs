@@ -6,8 +6,43 @@ import path from "node:path"
 import { assertPublishable, withVersion } from "./artifact.mjs"
 import { assertPinsAllowed, selections } from "./pins.mjs"
 import { candidateFormula, homebrewOptions, otherFormulae } from "./homebrew.mjs"
-import { Blocked, command, digest, environment, evidence } from "../e2e/harness.mjs"
+import { Blocked, command, contentDigest, digest, environment, evidence } from "../e2e/harness.mjs"
+import { adoptRegistryTarball } from "./registry.mjs"
+import { gzipSync } from "node:zlib"
 import { classifyDiagnostics, parseDiagnostics } from "../e2e/types.mjs"
+
+test("the same tar in another gzip has the same contents digest", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "sourcefed-gzip-"))
+  try {
+    const tar = Buffer.from("package/LICENSE".padEnd(1024, "\0"))
+    const mac = path.join(directory, "mac.tgz")
+    const linux = path.join(directory, "linux.tgz")
+    const other = path.join(directory, "other.tgz")
+    await writeFile(mac, gzipSync(tar, { level: 9 }))
+    await writeFile(linux, gzipSync(tar, { level: 1 }))
+    await writeFile(other, gzipSync(Buffer.from("package/README.md".padEnd(1024, "\0"))))
+
+    assert.notEqual(await digest(mac), await digest(linux))
+    assert.equal(await contentDigest(mac), await contentDigest(linux))
+    assert.notEqual(await contentDigest(mac), await contentDigest(other))
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test("a repacked registry tarball becomes the record's artifact, keeping the verified one", () => {
+  const record = { version: "0.5.0", artifact: "/tmp/local.tgz", sha256: "local-sha", integrity: "local-integrity", results: [] }
+  const detail = { integrity: "registry-integrity", repacked: { artifact: "/tmp/work/registry.tgz", sha256: "registry-sha", integrity: "registry-integrity", contentSha256: "tar-sha" } }
+
+  adoptRegistryTarball(record, detail, "/repo/.release/registry-sourcefed-0.5.0.tgz")
+
+  assert.deepEqual(
+    { artifact: record.artifact, sha256: record.sha256, integrity: record.integrity },
+    { artifact: "/repo/.release/registry-sourcefed-0.5.0.tgz", sha256: "registry-sha", integrity: "registry-integrity" },
+  )
+  assert.deepEqual(record.verifiedArtifact, { artifact: "/tmp/local.tgz", sha256: "local-sha", integrity: "local-integrity", contentSha256: "tar-sha" })
+  assert.equal(detail.repacked.artifact, "/repo/.release/registry-sourcefed-0.5.0.tgz")
+})
 
 test("version sync preserves manifest formatting", () => {
   const source = '{\n  "name": "@fdcn/sourcefed",\n  "version": "0.3.8",\n  "peerDependenciesMeta": {\n    "typebox": { "optional": true }\n  },\n  "dependencies": { "x": { "version": "1.0.0" } }\n}\n'

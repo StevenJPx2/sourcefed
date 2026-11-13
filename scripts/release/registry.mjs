@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
@@ -14,6 +14,7 @@ export async function verifyRegistry(record, settings) {
   try {
     await assertPublishable(record, await sourceState(env), record.version)
     const detail = await registryGate({ ...record, root, work, env, options: settings })
+    if (detail.repacked) adoptRegistryTarball(record, detail, await keep(detail.repacked.artifact, record.version))
     record.results = record.results.filter((gate) => gate.name !== "registry")
     record.results.push({ name: "registry", phase: "postpublish", status: "pass", detail })
     record.registryVerified = true
@@ -22,6 +23,23 @@ export async function verifyRegistry(record, settings) {
   } finally {
     await rm(work, { recursive: true, force: true })
   }
+}
+
+/**
+ * The registry holds the verified entries in other gzip bytes: Homebrew and the tap
+ * use the registry's, so the record now names them, keeping the verified ones.
+ */
+export function adoptRegistryTarball(record, detail, artifact) {
+  const { sha256, integrity, contentSha256 } = detail.repacked
+  record.verifiedArtifact = { artifact: record.artifact, sha256: record.sha256, integrity: record.integrity, contentSha256 }
+  Object.assign(record, { artifact, sha256, integrity })
+  detail.repacked = { ...detail.repacked, artifact }
+}
+
+async function keep(file, version) {
+  const kept = path.join(root, ".release", `registry-sourcefed-${version}.tgz`)
+  await copyFile(file, kept)
+  return kept
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
