@@ -1,3 +1,5 @@
+import type { EventSubject } from "./event-subject.ts"
+
 export type SourceEvent = {
   kind: string
   id?: string
@@ -6,4 +8,5 @@ export type SourceEvent = {
   body?: string
   actionable: boolean
   terminal?: boolean
+  subject?: EventSubject
 }

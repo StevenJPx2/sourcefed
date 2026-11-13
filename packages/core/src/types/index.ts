@@ -1,5 +1,6 @@
 export type { Delivery } from "./delivery.ts"
 export type { EventDeliveryResult, MonitorEventSink } from "./event-sink.ts"
+export type { EventSubject } from "./event-subject.ts"
 export type { MonitorCreateInput } from "./monitor-create-input.ts"
 export type { MonitorEvent } from "./monitor-event.ts"
 export type { MonitorContext } from "./monitor-context.ts"

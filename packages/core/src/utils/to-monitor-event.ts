@@ -2,7 +2,7 @@ import type { MonitorEvent, SourceEvent } from "#sourcefed/types"
 import type { MonitorSource } from "#sourcefed/sources"
 
 export function toMonitorEvent(event: SourceEvent, source: MonitorSource): MonitorEvent {
-  return {
+  const monitorEvent: MonitorEvent = {
     source,
     kind: event.kind,
     id: event.id,
@@ -12,4 +12,6 @@ export function toMonitorEvent(event: SourceEvent, source: MonitorSource): Monit
     actionable: event.actionable,
     terminal: event.terminal,
   }
+  if (event.subject) monitorEvent.subject = event.subject
+  return monitorEvent
 }
