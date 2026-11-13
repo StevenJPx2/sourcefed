@@ -5,6 +5,7 @@ import { InMemoryMonitorEventQueue, QueueMonitorEventSink } from "../events.ts"
 import type { MonitorContext, MonitorEvent, MonitorEventSink } from "#sourcefed/types"
 import { InMemoryMonitorStore } from "../storage/in-memory-monitor-store.ts"
 import { Monitor, MonitorService, PollMonitor, WebhookMonitor } from "#sourcefed/monitors"
+import { tick } from "./poll/utils/tick.ts"
 import type { MonitorRecord } from "#sourcefed/monitors"
 
 type TestSource = { type: "test"; key: string }
@@ -30,6 +31,24 @@ class TestMonitor extends Monitor<TestSource> {
       eventName: () => "test",
       parse: () => undefined,
     })
+  }
+
+  build(): { type: "test"; key: string } {
+    return { type: "test", key: "test" }
+  }
+}
+
+class PollOnlyMonitor extends Monitor<TestSource> {
+  readonly key = (source: TestSource): string => source.key
+  readonly icon = "?"
+  readonly label = (source: TestSource): string => source.key
+  readonly detail = (): string => ""
+  readonly describe = (source: TestSource): string => `Test ${source.key}`
+  readonly poll: PollMonitor<TestSource>
+
+  constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] }>) {
+    super({ type: "test", schema: testSourceSchema })
+    this.poll = new PollMonitor({ run: async () => ({ ...(await run()), terminal: false }) })
   }
 
   build(): { type: "test"; key: string } {
@@ -87,6 +106,26 @@ describe("Monitor transport orchestration", () => {
     assert.equal(await monitor.poll.run(context(service, sink), monitor, record), 1)
     assert.equal(delivered.length, 1)
     assert.deepEqual((await service.get(record.id))?.cursors[source.key], { seen: true })
+  })
+
+  test("keeps the poll interval after a failed poll", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    let polls = 0
+    const monitor = new PollOnlyMonitor(async () => {
+      polls += 1
+      if (polls === 1) throw new Error("upstream unavailable")
+      return { cursor: {}, events: [] }
+    })
+    const sink: MonitorEventSink = { deliver: async () => ({ ok: true }) }
+    const current = { ...context(service, sink), sources: { test: monitor } }
+    const record = await createRecord(service)
+
+    await tick(current)
+    await service.updateCursor(record, "__lastAttemptAt", Date.now() - 61_000)
+    await tick(current)
+    await tick(current)
+
+    assert.equal(polls, 2)
   })
 
   test("prevents concurrent polls for the same monitor", async () => {

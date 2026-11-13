@@ -74,7 +74,8 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
     }
     if (current.delivery !== "poll" || !this.poll) return 0
 
-    const lastAttemptAt = Number(current.cursors.__lastAttemptAt ?? current.cursors.__lastPolledAt ?? 0)
+    // A failed poll stamps __lastAttemptAt and a successful one __lastPolledAt; the later one counts.
+    const lastAttemptAt = Math.max(Number(current.cursors.__lastAttemptAt ?? 0), Number(current.cursors.__lastPolledAt ?? 0))
     const pollIntervalSec = current.pollIntervalSec || 60
     if (lastAttemptAt && Date.now() - lastAttemptAt < pollIntervalSec * 1000) return 0
     return this.poll.run(context, this, current)
