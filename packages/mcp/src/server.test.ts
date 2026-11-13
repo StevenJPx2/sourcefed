@@ -28,8 +28,7 @@ describe("Sourcefed MCP", () => {
       name: "monitor_create",
       arguments: {
         name: "ADEPT-43742",
-        sourceType: "jira",
-        issueKey: "ADEPT-43742",
+        source: { type: "jira", issueKey: "ADEPT-43742" },
         target,
       },
     })) as { monitor: MonitorRecord }
@@ -78,8 +77,7 @@ describe("Sourcefed MCP", () => {
 
     const args = {
       name: "ADEPT-43742",
-      sourceType: "jira",
-      issueKey: "ADEPT-43742",
+      source: { type: "jira", issueKey: "ADEPT-43742" },
       target: { kind: "test", id: "session-1" },
     }
     const first = parseToolResult(await client.callTool({ name: "monitor_create", arguments: args })) as { created: boolean; monitor: MonitorRecord }
@@ -88,6 +86,26 @@ describe("Sourcefed MCP", () => {
     assert.equal(second.created, false)
     assert.equal(second.monitor.id, first.monitor.id)
 
+    await client.close()
+    mcp.close()
+  })
+
+  test("refuses a source given another source's fields", async () => {
+    const daemon = createDaemon()
+    const mcp = createSourcefedMcp(daemon)
+    const client = new Client({ name: "sourcefed-test", version: "0.0.0" }, { versionNegotiation: { mode: "auto" } })
+    const transport = new StreamableHTTPClientTransport(new URL("http://sourcefed.test/mcp"), {
+      fetch: (url, init) => mcp.handler.fetch(new Request(url, init)),
+    })
+    await client.connect(transport)
+
+    const result = await client.callTool({
+      name: "monitor_create",
+      arguments: { name: "mixed", source: { type: "jira", repo: "octo/repo", prNumber: 42 }, target: { kind: "test", id: "session-1" } },
+    }) as { isError?: boolean }
+
+    assert.equal(result.isError, true)
+    assert.equal((await daemon.listMonitors({ kind: "test", id: "session-1" }) as { monitors: unknown[] }).monitors.length, 0)
     await client.close()
     mcp.close()
   })
@@ -104,7 +122,7 @@ describe("Sourcefed MCP", () => {
     const target = { kind: "test", id: "session-1" }
     const created = parseToolResult(await client.callTool({
       name: "monitor_create",
-      arguments: { name: "ADEPT-43742", sourceType: "jira", issueKey: "ADEPT-43742", target },
+      arguments: { name: "ADEPT-43742", source: { type: "jira", issueKey: "ADEPT-43742" }, target },
     })) as { monitor: MonitorRecord }
     const unauthorized = await client.callTool({
       name: "monitor_stop",

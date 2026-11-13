@@ -15,13 +15,14 @@ replies to the watched thread unless you are explicitly asked to.
 ## Create a monitor
 
 Monitors belong to the session that created them; list, status, and stop only
-affect that session's monitors.
+affect that session's monitors. `source` is one source, chosen by its `type`, with
+only that source's fields.
 
-- **Jira issue**: `monitor_create({ name: "PROJ-12345", sourceType: "jira", issueKey: "PROJ-12345" })`
-- **GitHub PR**: `monitor_create({ name: "PR #42", sourceType: "github", repo: "owner/repo", prNumber: 42 })`
-- **Slack thread**: `monitor_create({ name: "thread", sourceType: "slack", threadUrl: "<thread-url>" })`
-- **Whole Slack DM**: `monitor_create({ name: "DM with Alex", sourceType: "slack", channelId: "D0123456789" })`
-- **Yab feed**: `monitor_create({ name: "inbox", sourceType: "yab", url: "https://mail.google.com/mail/u/0/feed/atom", space: "Personal", match: "interview|offer", exclude: "newsletter" })`
+- **Jira issue**: `monitor_create({ name: "PROJ-12345", source: { type: "jira", issueKey: "PROJ-12345" } })`
+- **GitHub PR**: `monitor_create({ name: "PR #42", source: { type: "github", repo: "owner/repo", prNumber: 42 } })`
+- **Slack thread**: `monitor_create({ name: "thread", source: { type: "slack", threadUrl: "<thread-url>" } })`
+- **Whole Slack DM**: `monitor_create({ name: "DM with Alex", source: { type: "slack", channelId: "D0123456789" } })`
+- **Yab feed**: `monitor_create({ name: "inbox", source: { type: "yab", url: "https://mail.google.com/mail/u/0/feed/atom", space: "Personal", match: "interview|offer", exclude: "newsletter" } })`
 
 You will be notified of:
 

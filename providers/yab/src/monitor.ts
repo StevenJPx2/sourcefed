@@ -13,6 +13,16 @@ export class YabMonitor extends Monitor<YabSourceRecord> {
   }
 
   readonly key = (source: YabSourceRecord): string => `yab:${source.space ?? ""}:${source.url}`
+  readonly input = {
+    description: "New entries of an Atom, RSS or JSON feed read through the user's Yab browser with their sign-ins; Yab must be running",
+    properties: {
+      url: { type: "string", description: "Feed URL, e.g. https://mail.google.com/mail/u/0/feed/atom" },
+      space: { type: "string", description: "Yab space whose sign-ins to use; omit to use wherever the site is signed in" },
+      match: { type: "string", description: "Case-insensitive regex; only entries whose title, summary or author match are delivered" },
+      exclude: { type: "string", description: "Case-insensitive regex; entries that match are skipped" },
+    },
+    required: ["url"],
+  }
   readonly icon = "󰖟"
   readonly label = (source: YabSourceRecord): string => new URL(source.url).hostname
   readonly detail = (source: YabSourceRecord): string =>

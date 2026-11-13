@@ -13,6 +13,11 @@ export class JiraMonitor extends Monitor<JiraSourceRecord> {
   }
 
   readonly key = (source: JiraSourceRecord): string => `jira:${source.issueKey}`
+  readonly input = {
+    description: "A Jira issue: new comments, description edits, and status, assignee, priority or label changes",
+    properties: { issueKey: { type: "string", description: "Jira issue key, e.g. PROJ-12345" } },
+    required: ["issueKey"],
+  }
   readonly icon = "󰌃"
   readonly label = (source: JiraSourceRecord): string => source.issueKey
   readonly detail = (source: JiraSourceRecord): string => ` ${source.issueKey}`

@@ -1,7 +1,7 @@
-import { createMcpHandler, McpServer, ResourceTemplate } from "@modelcontextprotocol/server"
+import { createMcpHandler, fromJsonSchema, McpServer, ResourceTemplate } from "@modelcontextprotocol/server"
 import * as z from "zod/v4"
 import type { MonitorTarget } from "@sourcefed/core"
-import type { DaemonCreateInput, SourcefedDaemon } from "@sourcefed/daemon"
+import { monitorCreateToolSchema, toDaemonCreateInput, type MonitorCreateToolInput, type SourcefedDaemon } from "@sourcefed/daemon"
 import { decodeTarget, eventResourceUri } from "./uris.ts"
 
 export type SourcefedMcp = {
@@ -56,23 +56,7 @@ export function createSourcefedStdio(daemon: SourcefedDaemon): SourcefedStdio {
 
 function buildServer(daemon: SourcefedDaemon): McpServer {
   const targetSchema = z.object({ kind: z.string().min(1), id: z.string().min(1) })
-  const sourceTypeSchema = z.enum(daemon.sourceTypes as [string, ...string[]])
-  const createSchema = z.object({
-    name: z.string().min(1),
-    sourceType: sourceTypeSchema,
-    issueKey: z.string().optional(),
-    repo: z.string().optional(),
-    prNumber: z.number().int().positive().optional(),
-    channelId: z.string().optional(),
-    threadTs: z.string().optional(),
-    threadUrl: z.string().optional(),
-    url: z.string().optional(),
-    space: z.string().optional(),
-    match: z.string().optional(),
-    exclude: z.string().optional(),
-    pollIntervalSec: z.number().min(15).optional(),
-    target: targetSchema,
-  })
+  const createSchema = fromJsonSchema<MonitorCreateToolInput & { target: MonitorTarget }>(withTarget(monitorCreateToolSchema()))
   const scopedSchema = z.object({ target: targetSchema })
   const statusSchema = z.object({ target: targetSchema, id: z.string().min(1) })
   const ackSchema = z.object({ target: targetSchema, eventIDs: z.array(z.string().min(1)).min(1) })
@@ -90,7 +74,7 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
       annotations: { idempotentHint: true, readOnlyHint: false },
     },
     async (input) => {
-      const result = await daemon.createMonitor(input.target, input as unknown as DaemonCreateInput)
+      const result = await daemon.createMonitor(input.target, toDaemonCreateInput(input))
       if (!result.ok) return errorResult(result.error)
       return jsonResult({ ok: true, created: result.created, monitor: result.monitor })
     },
@@ -183,6 +167,20 @@ function buildServer(daemon: SourcefedDaemon): McpServer {
   )
 
   return server
+}
+
+function withTarget(schema: Record<string, unknown>): Record<string, unknown> {
+  const target = {
+    type: "object",
+    properties: { kind: { type: "string", minLength: 1 }, id: { type: "string", minLength: 1 } },
+    required: ["kind", "id"],
+    additionalProperties: false,
+  }
+  return {
+    ...schema,
+    properties: { ...(schema.properties as Record<string, unknown>), target },
+    required: [...(schema.required as string[]), "target"],
+  }
 }
 
 function jsonResult(value: unknown) {

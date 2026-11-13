@@ -63,7 +63,7 @@ function toolExercise() {
         async execute({ sessionID }) {
           const tool = (await ctx.tool.list()).find(tool => tool.id === "monitor_create")
           if (!tool) throw new Error("SourceFed monitor_create was not registered")
-          const result = await tool.execute({ name: "PROJ-1", sourceType: "jira", issueKey: "PROJ-1" }, { sessionID })
+          const result = await tool.execute({ name: "PROJ-1", source: { type: "jira", issueKey: "PROJ-1" } }, { sessionID })
           const output = JSON.parse(result.content)
           if (!output.ok || !output.created) throw new Error("monitor_create failed: " + result.content)
         }

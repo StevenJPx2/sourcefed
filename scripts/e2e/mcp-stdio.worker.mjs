@@ -20,7 +20,7 @@ try {
   assert.ok(tools.tools.some((tool) => tool.name === "monitor_create"))
   const target = { kind: "release", id: "stdio" }
   const result = await client.callTool({ name: "monitor_create", arguments: {
-    name: "release-stdio", sourceType: "jira", issueKey: "PROJ-1", target,
+    name: "release-stdio", source: { type: "jira", issueKey: "PROJ-1" }, target,
   } })
   assert.equal(result.structuredContent.ok, true)
   const uri = "sourcefed://targets/" + Buffer.from(JSON.stringify(target)).toString("base64url") + "/events"

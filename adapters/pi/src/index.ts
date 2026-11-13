@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 import { Type } from "typebox"
 import { eventToText, type QueuedMonitorEvent } from "@sourcefed/core"
 import type { LogEntryView, MonitorView } from "@sourcefed/daemon"
-import { connectDaemonClient, daemonCommand, daemonEnvironment, spawnLocalDaemon, type DaemonClient } from "@sourcefed/daemon"
+import { connectDaemonClient, daemonCommand, daemonEnvironment, monitorCreateToolSchema, spawnLocalDaemon, toDaemonCreateInput, type DaemonClient, type MonitorCreateToolInput } from "@sourcefed/daemon"
 import { logLines, showSourcefedDialog } from "./dialog.ts"
 import { MonitorManager, type MonitorAction } from "./monitors-dialog.ts"
 
@@ -48,23 +48,12 @@ export default async function sourcefedExtension(pi: ExtensionAPI): Promise<void
   pi.registerTool({
     name: "sourcefed_monitor_create",
     label: "Sourcefed monitor create",
-    description: "Create or reuse a Jira, GitHub PR, Slack thread, Slack DM, or Yab feed monitor for the current Pi session.",
-    parameters: Type.Object({
-      name: Type.String(),
-      sourceType: Type.Unsafe<string>({ type: "string", enum: ["jira", "github", "slack", "yab"] }),
-      issueKey: Type.Optional(Type.String()),
-      repo: Type.Optional(Type.String()),
-      prNumber: Type.Optional(Type.Number()),
-      channelId: Type.Optional(Type.String()),
-      threadTs: Type.Optional(Type.String()),
-      threadUrl: Type.Optional(Type.String()),
-      url: Type.Optional(Type.String()),
-      space: Type.Optional(Type.String()),
-      match: Type.Optional(Type.String()),
-      exclude: Type.Optional(Type.String()),
-      pollIntervalSec: Type.Optional(Type.Number()),
-    }),
-    execute: async (_toolCallID, input, _signal, _onUpdate, ctx) => toolResult(await call(ctx, "monitor_create", input)),
+    description: "Create or reuse a Jira, GitHub PR, Slack thread, Slack DM, or Yab feed monitor for the current Pi session. Pick one source by its type and give only that source's fields.",
+    parameters: Type.Unsafe<MonitorCreateToolInput>(monitorCreateToolSchema()),
+    execute: async (_toolCallID, input, _signal, _onUpdate, ctx) => {
+      const request = toDaemonCreateInput(input) as unknown as Record<string, unknown>
+      return toolResult(await call(ctx, "monitor_create", request))
+    },
   })
 
   pi.registerTool({

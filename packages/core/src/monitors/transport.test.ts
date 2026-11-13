@@ -13,6 +13,7 @@ const testSourceSchema = v.object({ type: v.literal("test"), key: v.string() })
 
 class TestMonitor extends Monitor<TestSource> {
   readonly key = (source: TestSource): string => source.key
+  readonly input = { description: "A test source", properties: {}, required: [] }
   readonly icon = "?"
   readonly label = (source: TestSource): string => source.key
   readonly detail = (): string => ""
@@ -40,6 +41,7 @@ class TestMonitor extends Monitor<TestSource> {
 
 class PollOnlyMonitor extends Monitor<TestSource> {
   readonly key = (source: TestSource): string => source.key
+  readonly input = { description: "A test source", properties: {}, required: [] }
   readonly icon = "?"
   readonly label = (source: TestSource): string => source.key
   readonly detail = (): string => ""

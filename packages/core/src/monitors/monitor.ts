@@ -1,6 +1,6 @@
 import * as v from "valibot"
 import type { MonitorContext, MonitorEvent, MonitorOptions, MonitorSchema } from "#sourcefed/types"
-import type { MonitorSource, SourceInput } from "#sourcefed/sources"
+import type { MonitorSource, SourceInput, SourceInputSchema } from "#sourcefed/sources"
 import type { Delivery, MonitorCreateInput } from "#sourcefed/types"
 import type { MonitorRecord } from "./types"
 import type { PollMonitor } from "./poll"
@@ -11,6 +11,7 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
   private readonly schema: MonitorSchema<TSource>
 
   abstract readonly key: (source: TSource) => string
+  abstract readonly input: SourceInputSchema
   abstract build(input: MonitorCreateInput): SourceInput
 
   /** Provider-specific display surface (nerd font icon, labels, describe). */
