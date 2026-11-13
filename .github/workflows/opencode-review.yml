@@ -1,8 +1,12 @@
 name: OpenCode review
 
+# Paused: the OPENCODE_API_KEY secret has expired and the model below,
+# opencode/deepseek-v4-flash, no longer exists, so every run failed. Re-enabling
+# needs a new key in OPENCODE_API_KEY, a model that exists, and this trigger back:
+#   pull_request:
+#     types: [opened, synchronize, reopened, ready_for_review]
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
   group: opencode-review-${{ github.event.pull_request.number }}
