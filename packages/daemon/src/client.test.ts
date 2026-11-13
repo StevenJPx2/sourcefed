@@ -34,7 +34,7 @@ describe("daemon clients", () => {
 
       const target = { kind: "test", id: "session-1" }
       const sourceTypes = await client.request("daemon.sourceTypes")
-      assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "github", "slack", "yab"] })
+      assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "github", "github-issues", "slack", "yab"] })
 
       const created = await client.request("monitor.create", {
         name: "ADEPT-1",
@@ -388,7 +388,7 @@ describe("daemon clients", () => {
         token: "secret",
       })
       const sourceTypes = await authenticated.request("daemon.sourceTypes")
-      assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "github", "slack", "yab"] })
+      assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "github", "github-issues", "slack", "yab"] })
       const listener = await authenticated.subscribe({ kind: "test", id: "authenticated" }, async () => {})
       await listener.close()
       await authenticated.close()
