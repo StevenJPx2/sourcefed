@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
+import { gunzipSync } from "node:zlib"
 import { mkdir, readFile } from "node:fs/promises"
 import path from "node:path"
 
@@ -71,6 +72,11 @@ function signalGroup(child, signal) {
 
 export async function digest(file, algorithm = "sha256") {
   return createHash(algorithm).update(await readFile(file)).digest("hex")
+}
+
+/** The digest of a tarball's uncompressed tar, the same for any gzip of the same entries. */
+export async function contentDigest(file) {
+  return createHash("sha256").update(gunzipSync(await readFile(file))).digest("hex")
 }
 
 export async function evidence(context, file, gate, checks) {

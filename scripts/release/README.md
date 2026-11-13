@@ -16,7 +16,7 @@ flowchart LR
 | `verify.mjs` | Pack once, isolate gates, retain manifest and logs |
 | `artifact.mjs` | Reject missing gates, changed source and changed artifact bytes |
 | `publish.mjs` | Opt-in authenticated push/publication after verification |
-| `registry.mjs` | Resume the postpublication registry canary |
+| `registry.mjs` | Resume the postpublication registry canary; adopt a CI-repacked tarball with the same tar |
 | `homebrew.mjs` | Explicit-consent upgrade, test and keep, or exact rollback |
 | `pins.mjs` | Independent tap, dotfiles and Pi selectors |
 | `tooling.test.mjs` | Fail-closed, isolation, tampering and selector tests |
