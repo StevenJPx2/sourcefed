@@ -48,8 +48,19 @@ function createCreateInput(params: Record<string, unknown>): DaemonCreateInput {
     name: params.name,
     sourceType: params.sourceType,
   }
-  for (const key of ["issueKey", "repo", "channelId", "threadTs", "threadUrl", "url", "space", "match", "exclude"] as const) {
+  const text = ["issueKey", "repo", "channelId", "threadTs", "threadUrl", "url", "space", "match", "exclude", "assignee", "author", "query"] as const
+  for (const key of text) {
     if (typeof params[key] === "string") input[key] = params[key]
+  }
+  if (params.labels !== undefined) {
+    if (!Array.isArray(params.labels) || !params.labels.every((label) => typeof label === "string")) {
+      throw new Error("labels must be an array of strings")
+    }
+    input.labels = params.labels
+  }
+  if (params.includeExisting !== undefined) {
+    if (typeof params.includeExisting !== "boolean") throw new Error("includeExisting must be a boolean")
+    input.includeExisting = params.includeExisting
   }
   if (typeof params.prNumber === "number") input.prNumber = params.prNumber
   if (params.pollIntervalSec !== undefined) {

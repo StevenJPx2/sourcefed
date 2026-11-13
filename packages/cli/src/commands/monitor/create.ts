@@ -23,11 +23,18 @@ export async function create(context: MonitorContext): Promise<void> {
     space: "space",
     match: "match",
     exclude: "exclude",
+    assignee: "assignee",
+    author: "author",
+    query: "query",
   }
   for (const key of Object.keys(keyMap)) {
     const value = flag(context.args, key)
     if (value) input[keyMap[key]] = value
   }
+  // GitHub's own issue filter separates labels with commas, so no label can contain one.
+  const labels = flag(context.args, "labels")
+  if (labels) input.labels = labels.split(",").map((label) => label.trim()).filter(Boolean)
+  if (context.args.includes("--include-existing")) input.includeExisting = true
   const prNumber = flag(context.args, "pr-number")
   if (prNumber) input.prNumber = Number(prNumber)
   const pollIntervalSec = flag(context.args, "poll-interval-sec")

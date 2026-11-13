@@ -9,4 +9,9 @@ export type MonitorCreateInput = {
   space?: string
   match?: string
   exclude?: string
+  labels?: string[]
+  assignee?: string
+  author?: string
+  query?: string
+  includeExisting?: boolean
 }
