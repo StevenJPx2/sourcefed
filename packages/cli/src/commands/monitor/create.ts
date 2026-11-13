@@ -26,6 +26,7 @@ export async function create(context: MonitorContext): Promise<void> {
     assignee: "assignee",
     author: "author",
     query: "query",
+    jql: "jql",
   }
   for (const key of Object.keys(keyMap)) {
     const value = flag(context.args, key)

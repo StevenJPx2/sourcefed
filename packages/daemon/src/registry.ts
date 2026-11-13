@@ -1,11 +1,12 @@
 import type { Monitor, MonitorCreateInput, MonitorSource, SourceInput } from "@sourcefed/core"
 import { GithubIssuesMonitor, GithubMonitor } from "@sourcefed/provider-github"
-import { JiraMonitor } from "@sourcefed/provider-jira"
+import { JiraMonitor, JiraQueryMonitor } from "@sourcefed/provider-jira"
 import { SlackMonitor } from "@sourcefed/provider-slack"
 import { YabMonitor } from "@sourcefed/provider-yab"
 
 export const SOURCE_MAP = {
   jira: new JiraMonitor(),
+  "jira-query": new JiraQueryMonitor(),
   github: new GithubMonitor(),
   "github-issues": new GithubIssuesMonitor(),
   slack: new SlackMonitor(),

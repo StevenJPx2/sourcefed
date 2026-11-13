@@ -20,6 +20,7 @@ only that source's fields.
 
 - **Jira issue**: `monitor_create({ name: "PROJ-12345", source: { type: "jira", issueKey: "PROJ-12345" } })`
 - **GitHub PR**: `monitor_create({ name: "PR #42", source: { type: "github", repo: "owner/repo", prNumber: 42 } })`
+- **Jira issues matching JQL**: `monitor_create({ name: "agent", source: { type: "jira-query", jql: "project = PROJ AND labels = agent" } })`
 - **GitHub issues with labels**: `monitor_create({ name: "build", source: { type: "github-issues", repo: "owner/repo", labels: ["agent:build"] } })`
 - **Slack thread**: `monitor_create({ name: "thread", source: { type: "slack", threadUrl: "<thread-url>" } })`
 - **Whole Slack DM**: `monitor_create({ name: "DM with Alex", source: { type: "slack", channelId: "D0123456789" } })`
@@ -30,6 +31,8 @@ You will be notified of:
 - **Jira**: new comments, description edits, and summary/status/assignee/priority/label changes.
 - **GitHub**: new reviews (including bot reviews), PR and line-level comments,
   CI failures, merge conflicts, and the PR being merged or closed.
+- **Jira query**: `item.matched` when an issue starts matching the JQL, `item.unmatched` when
+  it stops. The first poll is silent unless `includeExisting`.
 - **GitHub issues**: `item.matched` when an open issue starts carrying every label (and
   matches `assignee`, `author` or `query`), `item.unmatched` when it stops or closes. The
   first poll is silent unless `includeExisting`.

@@ -18,6 +18,7 @@ export type DaemonCreateInput = {
   author?: string
   query?: string
   includeExisting?: boolean
+  jql?: string
   pollIntervalSec?: number
 }
 

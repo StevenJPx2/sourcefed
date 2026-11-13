@@ -159,6 +159,7 @@ A shared HTTP server works for any client that supports remote MCP: start
 
 ```sh
 sourcefed monitor create --source-type jira --issue-key ADEPT-43742 --name ADEPT-43742
+sourcefed monitor create --source-type jira-query --jql "project = PROJ AND labels = agent" --name agent
 sourcefed monitor create --source-type github --repo owner/name --pr-number 42 --name pr-42
 sourcefed monitor create --source-type github-issues --repo owner/name --labels agent:build --include-existing --name build
 sourcefed monitor create --source-type slack --thread-url https://myteam.slack.com/archives/C0123/p1700000000000000
@@ -184,7 +185,8 @@ issue carrying all of `--labels` (comma-separated), optionally narrowed by `--as
 `--author` or extra search terms in `--query`. It sends `item.matched` when an issue starts
 matching and `item.unmatched` when it stops; the first poll is silent unless
 `--include-existing`. Past 1,000 matching issues it sends one `error` event and pauses
-matching. Yab takes `--url` (an Atom, RSS or
+matching. `jira-query` does the same for the issues matching `--jql`, a bounded JQL query
+(Jira refuses one with no restriction). Yab takes `--url` (an Atom, RSS or
 JSON feed), an optional `--space`, and `--match`/`--exclude` case-insensitive regexes over
 each entry's title, summary and author. Set `SOURCEFED_DAEMON_URL`
 when the daemon is not at the default URL.
