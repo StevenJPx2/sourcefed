@@ -15,6 +15,10 @@ type Subscription = {
 }
 
 const REFRESH_MS = 15_000
+// Timers count from libuv's cached loop time, so a periodic refresh can come a few
+// milliseconds before REFRESH_MS has passed by Date.now(). Without this slack, a
+// failed connection would wait a whole extra period for its retry.
+const RETRY_SLACK_MS = 1_000
 
 /** One client, timer and stream per enabled session, shared by all plugin locations. */
 export class OpenCodeSubscriptions {
@@ -101,7 +105,7 @@ export class OpenCodeSubscriptions {
     if (this.closed) return undefined
     if (this.daemon) return this.daemon
     if (this.connecting) return this.connecting
-    if (Date.now() - this.lastAttemptAt < REFRESH_MS) return undefined
+    if (Date.now() - this.lastAttemptAt < REFRESH_MS - RETRY_SLACK_MS) return undefined
     this.lastAttemptAt = Date.now()
     this.connecting = this.connect().then(async (daemon) => {
       if (this.closed) { await daemon.close(); return undefined }
