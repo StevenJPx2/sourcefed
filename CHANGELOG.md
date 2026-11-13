@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.1
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.5.0...v0.5.1)
+
+### 🚀 Enhancements
+
+- **daemon:** Add daemon.health and document the HTTP protocol for programs ([#17](https://github.com/StevenJPx2/sourcefed/pull/17))
+
+### 🩹 Fixes
+
+- **release:** Accept a CI-repacked registry tarball with the verified contents ([#16](https://github.com/StevenJPx2/sourcefed/pull/16))
+
+### ❤️ Contributors
+
+- Steven John ([@StevenJPx2](https://github.com/StevenJPx2))
+
 ## v0.5.0
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.2...v0.5.0)
