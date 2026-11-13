@@ -14,4 +14,5 @@ export type MonitorCreateInput = {
   author?: string
   query?: string
   includeExisting?: boolean
+  jql?: string
 }

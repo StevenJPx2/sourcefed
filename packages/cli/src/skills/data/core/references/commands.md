@@ -26,15 +26,16 @@ sourcefed skills path [name]                Print skill directory path
 
 ```text
 --name NAME           Human-readable monitor name (defaults to the source type)
---source-type TYPE    jira | github | github-issues | slack | yab
+--source-type TYPE    jira | jira-query | github | github-issues | slack | yab
 --issue-key KEY       Jira issue key (jira)
+--jql QUERY           A bounded JQL query (jira-query)
 --repo OWNER/NAME     GitHub repository (github)
 --pr-number N         GitHub PR number (github)
 --labels A,B          Labels an issue must all carry (github-issues)
 --assignee LOGIN      Only issues assigned to LOGIN (github-issues)
 --author LOGIN        Only issues opened by LOGIN (github-issues)
 --query TERMS         Extra GitHub search terms; uses the search API (github-issues)
---include-existing    Send item.matched for every issue already matching (github-issues)
+--include-existing    Send item.matched for every issue already matching (github-issues, jira-query)
 --channel-id ID       Slack channel or DM ID; a D… ID alone monitors the whole DM
 --thread-ts TS        Slack parent message timestamp; omit for a whole-DM monitor
 --thread-url URL      Slack thread URL (slack)
