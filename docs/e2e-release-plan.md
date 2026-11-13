@@ -199,7 +199,7 @@ npm run release:pins -- --tap
 ```mermaid
 flowchart TD
     Check["Installed sourcefed 0.3.8<br/>clean tap checkout"] --> Swap["Candidate formula<br/>in local tap checkout"]
-    Swap --> Upgrade["brew upgrade<br/>stevenjpx2/sourcefed/sourcefed"]
+    Swap --> Upgrade["brew upgrade<br/>stevenjpx2/taps/sourcefed"]
     Upgrade --> Test["brew test and skills list"]
     Test -->|pass| Keep["0.4.0 linked<br/>0.3.8 keg retained"]
     Test -->|fail| Restore["Uninstall 0.4.0 keg<br/>relink 0.3.8"]
@@ -212,7 +212,7 @@ verified version and tarball SHA-256, over the installed tap's local checkout. I
 restores the original bytes after the upgrade, test or failure; the public tap is
 unchanged. The candidate is retained as `.release/homebrew-formula.rb`.
 
-The check requires one installed Sourcefed keg from `stevenjpx2/sourcefed`, linked
+The check requires one installed Sourcefed keg from `stevenjpx2/taps`, linked
 `opt` and `bin` paths and a clean tap checkout. Outdated Sourcefed dependencies
 block it, and the upgrade dry run must name no dependency. Auto-update, cleanup,
 autoremove and dependent upgrades are disabled, so the previous keg remains.

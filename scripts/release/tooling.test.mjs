@@ -5,7 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import { assertPublishable, withVersion } from "./artifact.mjs"
 import { assertPinsAllowed, selections } from "./pins.mjs"
-import { candidateFormula, homebrewOptions, otherFormulae } from "./homebrew.mjs"
+import { candidateFormula, homebrewOptions, installedVersion, otherFormulae } from "./homebrew.mjs"
 import { Blocked, command, contentDigest, digest, environment, evidence } from "../e2e/harness.mjs"
 import { adoptRegistryTarball } from "./registry.mjs"
 import { gzipSync } from "node:zlib"
@@ -70,6 +70,13 @@ test("tap publication requires artifact-bound post-publish Homebrew proof", () =
   assertPinsAllowed(release, "0.4.0", ["tap"])
   gate.detail.sha256 = "wrong"
   assert.throws(() => assertPinsAllowed(release, "0.4.0", ["tap"]))
+})
+
+test("Homebrew upgrades only the one sourcefed keg installed from the release tap", () => {
+  const state = { inventory: "node 26.1.0\nsourcefed 0.4.0", opt: "../Cellar/sourcefed/0.4.0", bin: "../Cellar/sourcefed/0.4.0/bin/sourcefed", kegTap: "stevenjpx2/taps", tap: "" }
+  assert.equal(installedVersion(state), "0.4.0")
+  assert.throws(() => installedVersion({ ...state, kegTap: "stevenjpx2/sourcefed" }), /installed from stevenjpx2\/taps/)
+  assert.throws(() => installedVersion({ ...state, inventory: "sourcefed 0.3.8 0.4.0" }), /exactly one/)
 })
 
 test("Homebrew requires explicit consent and prepares only a local formula", () => {
