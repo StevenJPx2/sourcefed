@@ -4,7 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { InMemoryMonitorEventQueue, InMemoryMonitorStore, type QueuedMonitorEvent } from "@sourcefed/core"
+import { InMemoryMonitorEventQueue, InMemoryMonitorStore, JsonMonitorEventQueue, type QueuedMonitorEvent } from "@sourcefed/core"
 import { serveHttp } from "@sourcefed/daemon"
 import { connectDaemonClient } from "./client.ts"
 import { daemonCommand, daemonEnvironment, spawnLocalDaemon } from "./utils"
@@ -109,6 +109,61 @@ describe("daemon clients", () => {
       await listener.close()
       await client.close()
     } finally {
+      await server.stop()
+    }
+  })
+
+  test("an event's subject reaches a subscriber through the JSON queue", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "sourcefed-subject-"))
+    temporaryDirectories.push(directory)
+    const daemon = new SourcefedDaemon({
+      store: new InMemoryMonitorStore(),
+      eventQueue: new JsonMonitorEventQueue(directory),
+    })
+    const server = await serveHttp({
+      hostname: "127.0.0.1",
+      port: 0,
+      handler: (request: Request) => handleDaemonHttpRequest(daemon, request),
+    })
+    const client = await connectDaemonClient({ name: "sourcefed-test", url: `http://127.0.0.1:${server.port}` })
+    try {
+      const target = { kind: "program", id: "atelier" }
+      const created = await client.request("monitor.create", {
+        name: "ADEPT-1",
+        sourceType: "jira",
+        issueKey: "ADEPT-1",
+        target,
+      }) as { monitor: { id: string } }
+      const record = await daemon.service.get(created.monitor.id)
+      if (!record) throw new Error("monitor record not found")
+
+      const subject = { type: "jira-issue", key: "ADEPT-1", url: "https://example.atlassian.net/browse/ADEPT-1" }
+      await daemon.runtime.context.sink.deliver({
+        monitor: record,
+        event: {
+          source: record.source,
+          kind: "item.matched",
+          id: "item:ADEPT-1",
+          at: "2026-11-13T10:00:00.000Z",
+          summary: "ADEPT-1 matches",
+          actionable: true,
+          subject,
+        },
+      })
+
+      const received: QueuedMonitorEvent[] = []
+      const listener = await client.subscribe(target, async (events) => {
+        received.push(...events)
+      })
+      const deadline = Date.now() + 3_000
+      while (received.length === 0 && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+
+      assert.deepEqual(received.map((entry) => entry.event.subject), [subject])
+      await listener.close()
+    } finally {
+      await client.close()
       await server.stop()
     }
   })
