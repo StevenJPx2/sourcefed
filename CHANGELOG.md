@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.5.0
+
+[compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.2...v0.5.0)
+
+### 🚀 Enhancements
+
+- **core:** Add an optional structured subject to events ([#6](https://github.com/StevenJPx2/sourcefed/pull/6))
+- **adapters:** ⚠️  Take one tagged source in monitor_create ([#8](https://github.com/StevenJPx2/sourcefed/pull/8))
+- **github:** Add the github-issues collection source ([#10](https://github.com/StevenJPx2/sourcefed/pull/10))
+- **jira:** Add the jira-query collection source ([#11](https://github.com/StevenJPx2/sourcefed/pull/11))
+- **schedule:** Add the cron schedule source ([#12](https://github.com/StevenJPx2/sourcefed/pull/12))
+- **daemon:** Add follow --json and a bounded queue with overflow for program targets ([#13](https://github.com/StevenJPx2/sourcefed/pull/13))
+
+### 🩹 Fixes
+
+- **github:** Quote the failed job's log in CI failure events ([#2](https://github.com/StevenJPx2/sourcefed/pull/2))
+- **core:** Keep the poll interval after a failed poll ([#7](https://github.com/StevenJPx2/sourcefed/pull/7))
+- **opencode:** Retry a failed daemon connection on the next refresh ([#14](https://github.com/StevenJPx2/sourcefed/pull/14))
+- **schedule:** Keep croner's types out of the public declarations ([#15](https://github.com/StevenJPx2/sourcefed/pull/15))
+
+### 🤖 CI
+
+- Pause the OpenCode review workflow until it has a key and model ([#4](https://github.com/StevenJPx2/sourcefed/pull/4))
+
+#### ⚠️ Breaking Changes
+
+- **adapters:** ⚠️  Take one tagged source in monitor_create ([#8](https://github.com/StevenJPx2/sourcefed/pull/8))
+
+### ❤️ Contributors
+
+- Steven John ([@StevenJPx2](https://github.com/StevenJPx2))
+
 ## v0.4.2
 
 [compare changes](https://github.com/StevenJPx2/sourcefed/compare/v0.4.1...v0.4.2)
