@@ -1,5 +1,6 @@
 import type { MonitorTarget } from "@sourcefed/core"
 import type { SourcefedDaemon } from "./daemon.ts"
+import { daemonHealth } from "./health.ts"
 import type { DaemonCreateInput } from "./types"
 
 export async function dispatchDaemonRequest(daemon: SourcefedDaemon, method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -25,6 +26,8 @@ export async function dispatchDaemonRequest(daemon: SourcefedDaemon, method: str
       return { logs: await daemon.readLogs(createTarget(params)) }
     case "monitor.ack":
       return daemon.acknowledgeEvents(createTarget(params), (params.eventIDs as string[] | undefined) ?? [])
+    case "daemon.health":
+      return daemonHealth()
     case "daemon.sourceTypes":
       return { sourceTypes: daemon.sourceTypes }
     default:

@@ -212,8 +212,9 @@ sourcefed monitor ack --event-id EVENT_ID
 
 `follow` drains the queued events first, then prints live ones over SSE. Pipe its
 stdout into a loop, a file, or the agent's own reader. `follow --json` prints one queued
-event per line and acknowledges nothing, for a program that acknowledges each event once
-it has acted on it; [program targets](docs/program-targets.md) has the contract.
+event per line and acknowledges nothing, for a script that acknowledges each event once it
+has acted on it. A program connects to the daemon's HTTP API instead, starting with
+`daemon.health`; [program targets](docs/program-targets.md) has the protocol and the contract.
 
 ### Skills
 
