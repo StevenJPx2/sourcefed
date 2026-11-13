@@ -84,6 +84,8 @@ adapters (OpenCode, Pi) are all consumers of the daemon.
 - `sourcefed monitor create|list|status|stop` — drive a running daemon from the shell.
 - `sourcefed monitor follow` — tail new events live over SSE (drains queued events first);
   use `sourcefed monitor events` for a one-shot snapshot and `monitor ack` to consume them.
+  `follow --json` prints one event per line and acknowledges nothing, for a program that
+  acknowledges each event after acting on it (see docs/program-targets.md).
 
 Without MCP, read events from the CLI:
 

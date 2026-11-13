@@ -1,5 +1,5 @@
 import type { MonitorTarget, QueuedMonitorEvent } from "@sourcefed/core"
-import type { DaemonClient, DaemonClientOptions } from "./types"
+import type { DaemonClient, DaemonClientOptions, SubscribeOptions } from "./types"
 import { DaemonEventStream, pause } from "./event-stream.ts"
 import { defaultDaemonUrl, encodeTarget } from "./utils"
 
@@ -37,12 +37,15 @@ class HttpDaemonClient implements DaemonClient {
     return frame.result
   }
 
-  async subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>, options?: { signal?: AbortSignal }): Promise<{ close(): Promise<void> }> {
+  async subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>, options?: SubscribeOptions): Promise<{ close(): Promise<void> }> {
     if (this.closing) throw new Error("daemon closed")
     this.lifetime.signal.throwIfAborted()
+    const acknowledge = options?.acknowledge === false
+      ? async () => {}
+      : (events: QueuedMonitorEvent[], signal: AbortSignal) => this.acknowledge(target, events, signal)
     const stream = new DaemonEventStream(
       `${this.baseURL}/events?target=${encodeTarget(target)}`, this.headers(), onEvents,
-      (events, signal) => this.acknowledge(target, events, signal),
+      acknowledge,
       () => this.streams.delete(stream),
     )
     this.streams.add(stream)

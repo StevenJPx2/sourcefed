@@ -2,7 +2,7 @@ import { link, mkdir, open, readFile, rename, rm, writeFile } from "node:fs/prom
 import os from "node:os"
 import path from "node:path"
 import * as v from "valibot"
-import { createQueuedMonitorEvent } from "../events.ts"
+import { appendQueued, createQueuedMonitorEvent, TARGET_QUEUE_LIMIT } from "../events.ts"
 import { MonitorRegistrySchema } from "../monitors/schema.ts"
 import type { MonitorRecord, MonitorRegistry } from "../monitors/types"
 import type { MonitorEvent, MonitorEventQueue, MonitorStore, MonitorTarget, QueuedMonitorEvent } from "../types"
@@ -127,18 +127,12 @@ export class JsonMonitorEventQueue implements MonitorEventQueue {
   readonly eventsFile: string
   private queue = Promise.resolve()
 
-  constructor(readonly stateDir: string) {
+  constructor(readonly stateDir: string, private readonly limit = TARGET_QUEUE_LIMIT) {
     this.eventsFile = path.join(stateDir, "events.json")
   }
 
   async enqueue(input: { monitor: MonitorRecord; event: MonitorEvent }): Promise<QueuedMonitorEvent> {
-    return this.transact((events) => {
-      const queued = createQueuedMonitorEvent(input.monitor, input.event)
-      const existing = events.find((event) => event.id === queued.id)
-      if (existing) return existing
-      events.push(queued)
-      return queued
-    })
+    return this.transact((events) => appendQueued(events, createQueuedMonitorEvent(input.monitor, input.event), this.limit))
   }
 
   async read(target: MonitorTarget): Promise<QueuedMonitorEvent[]> {

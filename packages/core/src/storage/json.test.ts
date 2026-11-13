@@ -89,6 +89,32 @@ describe("JSON store", () => {
   })
 })
 
+describe("JSON event queue limit", () => {
+  test("keeps the overflow event on disk across queue instances", async () => {
+    const directory = await temporaryDirectory()
+    const monitor = {
+      id: "m-1",
+      name: "ADEPT-43742",
+      source: { type: "jira" as const, issueKey: "ADEPT-43742" },
+      delivery: "poll" as const,
+      target: { kind: "program", id: "atelier" },
+      pollIntervalSec: 60,
+      enabled: true,
+      createdAt: "2026-08-04T12:00:00.000Z",
+      updatedAt: "2026-08-04T12:00:00.000Z",
+      cursors: {},
+    } satisfies MonitorRecord
+    const queue = new JsonMonitorEventQueue(directory, 2)
+    const event = (id: string) => ({ source: monitor.source, kind: "comment", id, at: "2026-08-04T12:01:00.000Z", summary: id, actionable: true })
+
+    for (const id of ["c1", "c2", "c3"]) await queue.enqueue({ monitor, event: event(id) })
+
+    const reloaded = await new JsonMonitorEventQueue(directory, 2).read(monitor.target)
+    assert.deepEqual(reloaded.map((queued) => queued.event.id), ["c2", "c3", "overflow"])
+    assert.equal(reloaded[2].id, "m-1:overflow")
+  })
+})
+
 async function temporaryDirectory(): Promise<string> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "sourcefed-store-"))
   temporaryDirectories.push(directory)
