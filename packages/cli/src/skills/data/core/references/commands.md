@@ -26,7 +26,7 @@ sourcefed skills path [name]                Print skill directory path
 
 ```text
 --name NAME           Human-readable monitor name (defaults to the source type)
---source-type TYPE    jira | jira-query | github | github-issues | slack | yab
+--source-type TYPE    jira | jira-query | github | github-issues | slack | yab | schedule
 --issue-key KEY       Jira issue key (jira)
 --jql QUERY           A bounded JQL query (jira-query)
 --repo OWNER/NAME     GitHub repository (github)
@@ -41,9 +41,12 @@ sourcefed skills path [name]                Print skill directory path
 --thread-url URL      Slack thread URL (slack)
 --url URL             Atom, RSS or JSON feed URL read through Yab (yab)
 --space NAME          Yab space whose sign-ins to use (yab)
+--cron EXPR           A cron expression, e.g. "0 2 * * *" (schedule)
+--job NAME            The job's name, carried by each event (schedule)
+--timezone ZONE       An IANA time zone; the Mac's own when left out (schedule)
 --match REGEX         Only deliver entries matching this case-insensitive regex (yab)
 --exclude REGEX       Skip entries matching this case-insensitive regex (yab)
---poll-interval-sec N Poll interval in seconds (min 15)
+--poll-interval-sec N Poll interval in seconds (min 15; default 60, schedule 15)
 --target-kind KIND    Target kind for ownership scoping (default: cli)
 --target-id ID        Target id for ownership scoping (default: hostname)
 ```

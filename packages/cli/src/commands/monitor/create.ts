@@ -27,6 +27,9 @@ export async function create(context: MonitorContext): Promise<void> {
     author: "author",
     query: "query",
     jql: "jql",
+    cron: "cron",
+    job: "job",
+    timezone: "timezone",
   }
   for (const key of Object.keys(keyMap)) {
     const value = flag(context.args, key)

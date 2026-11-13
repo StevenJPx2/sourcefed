@@ -19,6 +19,9 @@ export type DaemonCreateInput = {
   query?: string
   includeExisting?: boolean
   jql?: string
+  cron?: string
+  job?: string
+  timezone?: string
   pollIntervalSec?: number
 }
 

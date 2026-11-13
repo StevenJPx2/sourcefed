@@ -18,6 +18,7 @@
     "@sourcefed/core": "*",
     "@sourcefed/provider-github": "*",
     "@sourcefed/provider-jira": "*",
+    "@sourcefed/provider-schedule": "*",
     "@sourcefed/provider-slack": "*",
     "@sourcefed/provider-yab": "*"
   },

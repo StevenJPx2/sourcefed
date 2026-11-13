@@ -1,6 +1,7 @@
 import type { Monitor, MonitorCreateInput, MonitorSource, SourceInput } from "@sourcefed/core"
 import { GithubIssuesMonitor, GithubMonitor } from "@sourcefed/provider-github"
 import { JiraMonitor, JiraQueryMonitor } from "@sourcefed/provider-jira"
+import { ScheduleMonitor } from "@sourcefed/provider-schedule"
 import { SlackMonitor } from "@sourcefed/provider-slack"
 import { YabMonitor } from "@sourcefed/provider-yab"
 
@@ -11,6 +12,7 @@ export const SOURCE_MAP = {
   "github-issues": new GithubIssuesMonitor(),
   slack: new SlackMonitor(),
   yab: new YabMonitor(),
+  schedule: new ScheduleMonitor(),
 }
 
 export const SOURCE_TYPES = Object.keys(SOURCE_MAP) as [string, ...string[]]

@@ -78,7 +78,7 @@ export class SourcefedDaemon {
       source,
       delivery: definition.initialDelivery(source),
       target,
-      pollIntervalSec: input.pollIntervalSec ?? 60,
+      pollIntervalSec: input.pollIntervalSec ?? definition.defaultPollIntervalSec ?? 60,
     })
     return { ok: true, created: result.created, monitor: monitorView(result.monitor) }
   }

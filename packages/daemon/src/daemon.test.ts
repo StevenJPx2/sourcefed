@@ -46,10 +46,22 @@ describe("SourcefedDaemon", () => {
     await daemon.stop()
   })
 
+  test("a schedule checks every 15 seconds unless asked otherwise", async () => {
+    const daemon = createDaemon()
+    const input = { name: "nightly", sourceType: "schedule", cron: "0 2 * * *", job: "nightly-audit", timezone: "Asia/Kolkata" }
+
+    const created = await daemon.createMonitor(target, input)
+    const slower = await daemon.createMonitor(target, { ...input, job: "weekly", pollIntervalSec: 60 })
+
+    assert.equal(created.ok && created.monitor?.pollIntervalSec, 15)
+    assert.equal(slower.ok && slower.monitor?.pollIntervalSec, 60)
+    await daemon.stop()
+  })
+
   test("rejects unknown source types", async () => {
     const daemon = createDaemon()
     const result = await daemon.createMonitor(target, { name: "nope", sourceType: "telepathy" })
-    assert.deepEqual(result, { ok: false, error: "unknown source type telepathy; expected jira|jira-query|github|github-issues|slack|yab" })
+    assert.deepEqual(result, { ok: false, error: "unknown source type telepathy; expected jira|jira-query|github|github-issues|slack|yab|schedule" })
     await daemon.stop()
   })
 

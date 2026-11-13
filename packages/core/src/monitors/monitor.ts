@@ -23,6 +23,7 @@ export abstract class Monitor<TSource extends MonitorSource = MonitorSource> {
   readonly poll?: PollMonitor<TSource>
   readonly webhook?: WebhookMonitor<TSource>
   readonly wake?: MonitorWake<TSource>
+  readonly defaultPollIntervalSec?: number
 
   protected constructor(options: MonitorOptions<TSource>) {
     this.type = options.type
