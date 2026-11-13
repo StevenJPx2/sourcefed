@@ -9,7 +9,7 @@ import { command, digest, environment } from "../e2e/harness.mjs"
 import { assertPublishable } from "./artifact.mjs"
 import { root, sourceState } from "./verify.mjs"
 
-const tap = "stevenjpx2/sourcefed"
+const tap = "stevenjpx2/taps"
 const formulaName = tap + "/sourcefed"
 
 export function homebrewOptions(args) {
@@ -90,14 +90,16 @@ async function snapshot(brew, prefix, formula) {
   const link = (name) => readlink(path.join(prefix, name)).catch(() => "")
   return { inventory: await brew.run(["list", "--formula", "--versions"]),
     opt: await link("opt/sourcefed"), bin: await link("bin/sourcefed"),
+    kegTap: await readFile(path.join(prefix, "opt/sourcefed/INSTALL_RECEIPT.json"), "utf8").then((text) => JSON.parse(text).source?.tap ?? "", () => ""),
     tap: await brew.run(["-C", path.dirname(path.dirname(formula)), "status", "--porcelain"], "git") }
 }
 
-function installedVersion(state) {
+export function installedVersion(state) {
   const line = state.inventory.split("\n").find((entry) => /^sourcefed\s/.test(entry))
   assert.ok(line, "sourcefed must already be installed from " + tap)
   const versions = line.split(/\s+/).slice(1)
   assert.equal(versions.length, 1, "exactly one sourcefed keg must be installed")
+  assert.equal(state.kegTap, tap, "sourcefed must already be installed from " + tap)
   assert.equal(state.tap, "", "local tap checkout has changes")
   assert.equal(state.opt, "../Cellar/sourcefed/" + versions[0])
   assert.equal(state.bin, "../Cellar/sourcefed/" + versions[0] + "/bin/sourcefed")

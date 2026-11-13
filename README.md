@@ -17,7 +17,7 @@ It's also named after the [SourceFed](https://www.youtube.com/sourcefed) YouTube
 ## Install
 
 ```sh
-brew install stevenjpx2/tap/sourcefed
+brew install stevenjpx2/taps/sourcefed
 ```
 
 (`npm install --global @fdcn/sourcefed` installs the same CLI.)
