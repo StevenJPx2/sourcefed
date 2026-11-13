@@ -15,6 +15,14 @@ export class GithubMonitor extends Monitor<GithubSourceRecord> {
   }
 
   readonly key = (source: GithubSourceRecord): string => `github:${source.repo}#${source.prNumber}`
+  readonly input = {
+    description: "A GitHub pull request: reviews, comments, CI failures, conflicts, merge or close",
+    properties: {
+      repo: { type: "string", description: "GitHub owner/name, e.g. owner/repository" },
+      prNumber: { type: "integer", minimum: 1, description: "Pull request number" },
+    },
+    required: ["repo", "prNumber"],
+  }
   readonly icon = "󰊤"
   readonly label = (source: GithubSourceRecord): string => `#${source.prNumber}`
   readonly detail = (source: GithubSourceRecord): string => ` ${source.repo}#${source.prNumber}`

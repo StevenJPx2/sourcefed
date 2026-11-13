@@ -1,1 +1,1 @@
-export type { MonitorSource, MonitorSourceRegistry, SourceInput } from "./types"
+export type { MonitorSource, MonitorSourceRegistry, SourceInput, SourceInputSchema } from "./types"

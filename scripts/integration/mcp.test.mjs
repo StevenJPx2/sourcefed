@@ -74,7 +74,7 @@ try {
 
   const created = await client.callTool({
     name: "monitor_create",
-    arguments: { name: "PROJ-1", sourceType: "jira", issueKey: "PROJ-1", pollIntervalSec: 15, target },
+    arguments: { name: "PROJ-1", source: { type: "jira", issueKey: "PROJ-1" }, pollIntervalSec: 15, target },
   })
   const createdContent = created.structuredContent ?? created.content?.[0]?.text
   assert(createdContent && createdContent.ok, "MCP tool created monitor")

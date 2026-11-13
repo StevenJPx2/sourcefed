@@ -17,6 +17,15 @@ export class SlackMonitor extends Monitor<SlackSourceRecord> {
   readonly key = (source: SlackSourceRecord): string => source.threadTs
     ? `slack:${source.channelId}#${source.threadTs}`
     : `slack:${source.channelId}`
+  readonly input = {
+    description: "A Slack thread's new replies, or a whole DM's new messages; read-only, never replies. Give threadUrl, or channelId with threadTs, or a D… DM channelId alone",
+    properties: {
+      threadUrl: { type: "string", description: "Slack thread URL" },
+      channelId: { type: "string", description: "Slack channel or DM ID; a DM ID without threadTs watches the whole DM" },
+      threadTs: { type: "string", description: "Slack parent message timestamp" },
+    },
+    required: [],
+  }
   readonly icon = "󰒱"
   readonly label = (source: SlackSourceRecord): string => source.threadTs ? "thread" : "DM"
   readonly detail = (source: SlackSourceRecord): string => ` ${source.channelId}`
