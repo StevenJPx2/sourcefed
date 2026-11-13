@@ -13,7 +13,7 @@ sourcefed monitor stop --id ID [--target-kind KIND] [--target-id ID]
 sourcefed monitor start --id ID [--target-kind KIND] [--target-id ID]
 sourcefed monitor remove --id ID --yes [--target-kind KIND] [--target-id ID]
 sourcefed monitor events [--target-kind KIND] [--target-id ID]
-sourcefed monitor follow [--target-kind KIND] [--target-id ID]
+sourcefed monitor follow [--json] [--target-kind KIND] [--target-id ID]
 sourcefed monitor ack --event-id ID [--event-id ID...] [--target-kind KIND] [--target-id ID]
 sourcefed monitor sources
 sourcefed skills [list]                     List bundled skills

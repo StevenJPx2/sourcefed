@@ -12,8 +12,18 @@ export type DaemonClientOptions = {
 
 export interface DaemonClient {
   request(method: string, params?: Record<string, unknown>): Promise<unknown>
-  subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>, options?: { signal?: AbortSignal }): Promise<{ close(): Promise<void> }>
+  subscribe(target: MonitorTarget, onEvents: (events: QueuedMonitorEvent[]) => Promise<void>, options?: SubscribeOptions): Promise<{ close(): Promise<void> }>
   close(): Promise<void>
+}
+
+/**
+ * `acknowledge: false` leaves acknowledgement to the caller (`monitor.ack`), as a
+ * program does once it has acted; the events stay claimed by this subscription
+ * and come again when it reconnects.
+ */
+export type SubscribeOptions = {
+  signal?: AbortSignal
+  acknowledge?: boolean
 }
 
 export type SpawnDaemonResult = {
