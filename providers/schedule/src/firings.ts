@@ -8,7 +8,13 @@ export const MISSED_COUNT_LIMIT = 1_000
 
 export type Firings = { latest: Date; count: number }
 
-export function scheduleCron(cron: string, timezone: string): Cron {
+/** Refuse an invalid cron or unknown zone, with croner's message. croner checks a zone only when it computes a time. */
+export function checkSchedule(cron: string, timezone: string): void {
+  scheduleCron(cron, timezone).nextRun()
+}
+
+// croner's types stay out of these signatures: the public declarations would need croner installed.
+function scheduleCron(cron: string, timezone: string): Cron {
   return new Cron(cron, { timezone, paused: true })
 }
 
@@ -17,8 +23,9 @@ export function systemTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
-/** The scheduled times in (after, until], or undefined when there are none. */
-export function firingsBetween(cron: Cron, after: Date, until: Date): Firings | undefined {
+/** The scheduled times of `pattern` in (after, until], or undefined when there are none. */
+export function firingsBetween(pattern: string, timezone: string, after: Date, until: Date): Firings | undefined {
+  const cron = scheduleCron(pattern, timezone)
   let next = cron.nextRun(after)
   let latest: Date | undefined
   let count = 0

@@ -24,7 +24,7 @@ stateDiagram-v2
 | --- | --- |
 | `monitor.ts` | `ScheduleMonitor`: builds and checks the source, its input schema, and its 15-second default. |
 | `poll.ts` | `pollSchedule`: the times since the last check become one event, or none. |
-| `firings.ts` | croner: the times in a window, the system zone, and ISO times with the zone's offset. |
+| `firings.ts` | croner, kept out of its signatures: the times in a window, checking a schedule, the system zone, and ISO times with the zone's offset. |
 | `events.ts` | `schedule.fired` and `schedule.missed`, with their `schedule` subject. |
 | `schema.ts` | The source record and the cursor. |
 
