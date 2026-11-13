@@ -246,6 +246,11 @@ See the [Terminal Control README](https://github.com/anomalyco/terminal-control)
 
 ## Publication and registry checks
 
+The tag workflow's proposed [protected-environment setup](release-automation.md)
+replaces npm staging with owner-approved OIDC publication. Both services must be
+configured before that workflow is merged. The artifact checks and explicit
+Homebrew/tap permissions below remain separate requirements.
+
 `npm run release:publish -- --dry-run` performs verification only. A real publish
 requires a clean main branch, an unused version and every prepublish gate passing
 with zero skips. The script syncs version metadata into an explicit local commit

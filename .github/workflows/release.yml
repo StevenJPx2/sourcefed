@@ -1,10 +1,8 @@
 name: Release
 
-# Stages @fdcn/sourcefed when a release tag such as v0.4.2 is pushed; a
-# maintainer approves it with 2FA on npmjs.com (Staged Packages) or with
-# `npm stage approve`, which publishes it. npm trusted publishing
-# authenticates this workflow (release.yml) with OIDC and adds provenance;
-# NPM_TOKEN, a granular publish token, is the fallback.
+# A v* tag verifies the package, then waits for the release environment's owner
+# approval. npm authenticates release.yml / release with OIDC, not NPM_TOKEN.
+# Configure both services before merging this workflow; see docs/release-automation.md.
 
 on:
   push:
@@ -12,29 +10,47 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
 
 jobs:
-  publish:
+  verify:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Require the protected release environment
+        run: node scripts/release/environment.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: The tag names the package's version
+        run: test "v$(node -p "require('./packages/sourcefed/package.json').version")" = "$GITHUB_REF_NAME"
+      - run: npm ci
+      - run: npm run check
+
+  publish:
+    needs: verify
+    environment: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: npm 11.15.0 or later, for staged publishing
+      - name: npm 11 for trusted publishing
         run: npm install -g npm@^11.15.0
-      - name: The tag names the package's version
-        run: test "v$(node -p "require('./packages/sourcefed/package.json').version")" = "$GITHUB_REF_NAME"
       - run: npm ci
-      # One retry: a timing-sensitive subscription test fails now and then on shared runners.
-      - run: npm run check || npm run check
-      - name: Stage for approval
+      - run: npm run check
+      - name: Publish after environment approval
         working-directory: packages/sourcefed
-        run: npm stage publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
