@@ -6,6 +6,7 @@ import type { MonitorContext, MonitorEvent, MonitorEventSink } from "#sourcefed/
 import { InMemoryMonitorStore } from "../storage/in-memory-monitor-store.ts"
 import { Monitor, MonitorService, PollMonitor, WebhookMonitor } from "#sourcefed/monitors"
 import { tick } from "./poll/utils/tick.ts"
+import { handleWebhook } from "./webhook/utils/handle-webhook.ts"
 import type { MonitorRecord } from "#sourcefed/monitors"
 
 type TestSource = { type: "test"; key: string }
@@ -47,6 +48,11 @@ class PollOnlyMonitor extends Monitor<TestSource> {
   readonly detail = (): string => ""
   readonly describe = (source: TestSource): string => `Test ${source.key}`
   readonly poll: PollMonitor<TestSource>
+
+  readonly wake = {
+    path: "/webhooks/test",
+    matches: (source: TestSource, payload: unknown): boolean => (payload as { key?: string }).key === source.key,
+  }
 
   constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] }>) {
     super({ type: "test", schema: testSourceSchema })
@@ -124,6 +130,32 @@ describe("Monitor transport orchestration", () => {
 
     await tick(current)
     await service.updateCursor(record, "__lastAttemptAt", Date.now() - 61_000)
+    await tick(current)
+    await tick(current)
+
+    assert.equal(polls, 2)
+  })
+
+  test("a matching webhook wakes a poll before its interval", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    let polls = 0
+    const waking = new PollOnlyMonitor(async () => {
+      polls += 1
+      return { cursor: {}, events: [] }
+    })
+    const receiver = new TestMonitor(async () => ({ cursor: {}, events: [] }))
+    const sink: MonitorEventSink = { deliver: async () => ({ ok: true }) }
+    const current: MonitorContext = { ...context(service, sink), sources: { test: waking }, sourceForWebhookPath: () => receiver as unknown as Monitor }
+    await createRecord(service)
+    const delivery = (key: string) => new Request("http://daemon.test/webhooks/test", {
+      method: "POST",
+      body: JSON.stringify({ key }),
+    })
+
+    await tick(current)
+    await handleWebhook(delivery("another-issue"), current)
+    await tick(current)
+    await handleWebhook(delivery("issue-1"), current)
     await tick(current)
     await tick(current)
 
