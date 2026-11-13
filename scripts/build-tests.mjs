@@ -1,6 +1,7 @@
 import { build } from "esbuild"
 import { readdirSync, rmSync } from "node:fs"
 import path from "node:path"
+import { define } from "./build-define.mjs"
 
 const ROOTS = ["packages", "providers", "adapters"]
 const files = []
@@ -43,6 +44,7 @@ for (const file of files) {
     format: "esm",
     target: "node22",
     external: ["node:*"],
+    define,
     logLevel: "warning",
   })
 }

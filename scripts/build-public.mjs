@@ -3,6 +3,7 @@ import { build } from "esbuild"
 import { chmodSync, copyFileSync, cpSync, mkdirSync, readFileSync, rmSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { define } from "./build-define.mjs"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const OUT = path.join(ROOT, "packages/sourcefed/dist")
@@ -53,6 +54,7 @@ const bundled = await build({
   platform: "node",
   target: "node22",
   external: EXTERNAL,
+  define,
   logLevel: "warning",
 })
 
@@ -66,6 +68,7 @@ await build({
   platform: "node",
   target: "node22",
   external: EXTERNAL,
+  define,
   logLevel: "warning",
 })
 

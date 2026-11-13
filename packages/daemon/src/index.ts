@@ -1,5 +1,6 @@
 export { SourcefedDaemon, monitorView } from "./daemon.ts"
 export { SOURCE_TYPES } from "./registry.ts"
+export { DAEMON_PROTOCOL, daemonHealth, type DaemonHealth } from "./health.ts"
 export { monitorCreateToolSchema, toDaemonCreateInput, type MonitorCreateToolInput } from "./create-tool.ts"
 export { connectDaemonClient } from "./client.ts"
 export { defaultDaemonUrl } from "./utils"

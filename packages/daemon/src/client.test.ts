@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { afterEach, describe, test } from "node:test"
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -12,6 +12,7 @@ import { SourcefedDaemon } from "./daemon.ts"
 import { handleDaemonHttpRequest } from "./http.ts"
 
 const CLI_ENTRY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../packages/cli/dist/index.js")
+const ROOT_MANIFEST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../package.json")
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
@@ -35,6 +36,9 @@ describe("daemon clients", () => {
       const target = { kind: "test", id: "session-1" }
       const sourceTypes = await client.request("daemon.sourceTypes")
       assert.deepEqual(sourceTypes, { sourceTypes: ["jira", "jira-query", "github", "github-issues", "slack", "yab", "schedule"] })
+
+      const { version } = JSON.parse(await readFile(ROOT_MANIFEST, "utf8")) as { version: string }
+      assert.deepEqual(await client.request("daemon.health"), { ok: true, version, protocol: 1 })
 
       const created = await client.request("monitor.create", {
         name: "ADEPT-1",

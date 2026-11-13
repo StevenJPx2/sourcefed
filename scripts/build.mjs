@@ -1,5 +1,6 @@
 import { build } from "esbuild"
 import { chmod, cpSync } from "node:fs"
+import { define } from "./build-define.mjs"
 
 const ENTRIES = [
   { entry: "packages/core/src/index.ts", outfile: "packages/core/dist/index.js" },
@@ -23,6 +24,7 @@ for (const entry of ENTRIES) {
     format: "esm",
     target: "node22",
     external: ["node:*"],
+    define,
     logLevel: "warning",
   })
 }
