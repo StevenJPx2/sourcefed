@@ -15,11 +15,16 @@ flowchart LR
 | --- | --- |
 | `verify.mjs` | Pack once, isolate gates, retain manifest and logs |
 | `artifact.mjs` | Reject missing gates, changed source and changed artifact bytes |
+| `environment.mjs` | Read GitHub's release environment; reject missing owner approval or broader deployment policies |
 | `publish.mjs` | Opt-in authenticated push/publication after verification |
 | `registry.mjs` | Resume the postpublication registry canary; adopt a CI-repacked tarball with the same tar |
 | `homebrew.mjs` | Explicit-consent upgrade, test and keep, or exact rollback |
 | `pins.mjs` | Independent tap, dotfiles and Pi selectors |
 | `tooling.test.mjs` | Fail-closed, isolation, tampering and selector tests |
+
+The tag workflow uses owner-approved OIDC publication; see the proposed
+[automation setup](../../docs/release-automation.md) before enabling it. This does
+not replace the local artifact checks below.
 
 Start with a mutation-free candidate check:
 

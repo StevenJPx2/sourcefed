@@ -9,6 +9,32 @@ import { candidateFormula, homebrewOptions, installedVersion, otherFormulae } fr
 import { Blocked, command, contentDigest, digest, environment, evidence } from "../e2e/harness.mjs"
 import { adoptRegistryTarball } from "./registry.mjs"
 import { gzipSync } from "node:zlib"
+import { assertReleaseEnvironment } from "./environment.mjs"
+
+test("release automation refuses missing reviewers or broad deployment policies", () => {
+  const environment = {
+    name: "release",
+    protection_rules: [{ type: "required_reviewers", reviewers: [{ type: "User", reviewer: { login: "StevenJPx2" } }] }],
+    deployment_branch_policy: { protected_branches: false, custom_branch_policies: true },
+  }
+  const policies = { total_count: 1, branch_policies: [{ type: "tag", name: "v*" }] }
+  assertReleaseEnvironment(environment, policies, "StevenJPx2")
+  assert.throws(() => assertReleaseEnvironment({}, policies, "StevenJPx2"))
+  assert.throws(() => assertReleaseEnvironment({ ...environment, name: "other" }, policies, "StevenJPx2"))
+  assert.throws(() => assertReleaseEnvironment({ ...environment, protection_rules: [] }, policies, "StevenJPx2"))
+  const teamRule = { type: "required_reviewers", reviewers: [{ type: "Team", reviewer: { login: "StevenJPx2" } }] }
+  assert.throws(() => assertReleaseEnvironment({ ...environment, protection_rules: [teamRule] }, policies, "StevenJPx2"))
+  const manyRule = { ...teamRule, reviewers: [...teamRule.reviewers, ...teamRule.reviewers] }
+  assert.throws(() => assertReleaseEnvironment({ ...environment, protection_rules: [manyRule] }, policies, "StevenJPx2"))
+  assert.throws(() => assertReleaseEnvironment(environment, policies, "someone-else"))
+  assert.throws(() => assertReleaseEnvironment({ ...environment, deployment_branch_policy: null }, policies, "StevenJPx2"))
+  for (const policy of [{ type: "branch", name: "v*" }, { type: "tag", name: "*" }]) {
+    assert.throws(() => assertReleaseEnvironment(environment, { ...policies, branch_policies: [policy] }, "StevenJPx2"))
+  }
+  assert.throws(() => assertReleaseEnvironment(environment, { ...policies, total_count: 2 }, "StevenJPx2"))
+  assert.throws(() => assertReleaseEnvironment(environment, { ...policies, branch_policies: [] }, "StevenJPx2"))
+})
+
 import { classifyDiagnostics, parseDiagnostics } from "../e2e/types.mjs"
 
 test("the same tar in another gzip has the same contents digest", async () => {
