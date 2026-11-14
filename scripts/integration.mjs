@@ -23,6 +23,9 @@ for (const name of scenarioNames) {
   if (!availableScenarioNames.includes(name)) throw new Error(`unknown integration scenario: ${name}`)
 }
 
+const selection = `${scenarioNames.length} of ${availableScenarioNames.length} scenarios selected`
+if (requestedScenarioNames.length > 0) console.log(`integration: ${selection}: ${scenarioNames.join(", ")}`)
+
 const PACKAGES = [
   "packages/core",
   "packages/daemon",
@@ -75,7 +78,7 @@ for (const name of scenarioNames.sort()) {
   }
 }
 
-console.log(`\n${passed}/${scenarioNames.length} integration scenarios passed`)
+console.log(`\n${passed}/${scenarioNames.length} integration scenarios passed (${selection})`)
 if (failures.length > 0) {
   console.error(`failed: ${failures.join(", ")}`)
   process.exitCode = 1

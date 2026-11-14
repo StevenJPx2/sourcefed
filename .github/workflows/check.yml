@@ -27,8 +27,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Pi development host is the locked 1.5.2
-        run: test "$(npm ls @earendil-works/pi-coding-agent --workspace @sourcefed/pi --depth=0 --json | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>console.log(JSON.parse(s).dependencies["@sourcefed/pi"].dependencies["@earendil-works/pi-coding-agent"].version))')" = 1.5.2
       - run: npm run build:tui
       - run: npm run build:public
-      - run: npm run integration -- pi.test.mjs pi-package.test.mjs
+      - name: Pi integration on the locked development host
+        run: |
+          PATH="$PWD/node_modules/.bin:$PATH" node scripts/assert-pi-host.mjs
+          npm run integration -- pi.test.mjs pi-package.test.mjs
+      - name: Pi integration on the Pi 0.83.0 host
+        env:
+          LEGACY_PI: ${{ runner.temp }}/pi-0.83.0
+        run: |
+          npm install --prefix "$LEGACY_PI" --ignore-scripts --no-audit --no-fund @earendil-works/pi-coding-agent@0.83.0
+          export PATH="$LEGACY_PI/node_modules/.bin:$PATH"
+          node scripts/assert-pi-host.mjs 0.83.0
+          node scripts/integration.mjs pi.test.mjs pi-package.test.mjs
