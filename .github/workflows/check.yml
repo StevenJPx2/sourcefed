@@ -15,3 +15,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+
+  pi-integration:
+    name: Pi integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pi development host is the locked 1.5.2
+        run: test "$(npm ls @earendil-works/pi-coding-agent --workspace @sourcefed/pi --depth=0 --json | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>console.log(JSON.parse(s).dependencies["@sourcefed/pi"].dependencies["@earendil-works/pi-coding-agent"].version))')" = 1.5.2
+      - run: npm run build:tui
+      - run: npm run build:public
+      - run: npm run integration -- pi.test.mjs pi-package.test.mjs

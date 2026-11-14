@@ -9,6 +9,20 @@ const INTEGRATION = path.join(ROOT, ".integration")
 const CONSUMER = path.join(INTEGRATION, "consumer")
 const SCENARIOS = path.join(ROOT, "scripts/integration")
 
+const availableScenarioNames = readdirSync(SCENARIOS, { withFileTypes: true })
+  .filter((entry) => entry.isFile() && entry.name.endsWith(".test.mjs"))
+  .map((entry) => entry.name)
+const requestedScenarioNames = process.argv.slice(2)
+const scenarioNames = requestedScenarioNames.length > 0 ? requestedScenarioNames : availableScenarioNames
+
+if (new Set(scenarioNames).size !== scenarioNames.length) {
+  throw new Error("duplicate integration scenario names are not allowed")
+}
+
+for (const name of scenarioNames) {
+  if (!availableScenarioNames.includes(name)) throw new Error(`unknown integration scenario: ${name}`)
+}
+
 const PACKAGES = [
   "packages/core",
   "packages/daemon",
@@ -48,7 +62,6 @@ for (const entry of readdirSync(SCENARIOS).filter((name) => name.endsWith(".mjs"
   cpSync(path.join(SCENARIOS, entry), path.join(CONSUMER, "scenarios", entry))
 }
 
-const scenarioNames = readdirSync(path.join(CONSUMER, "scenarios")).filter((name) => name.endsWith(".test.mjs"))
 let passed = 0
 const failures = []
 for (const name of scenarioNames.sort()) {
