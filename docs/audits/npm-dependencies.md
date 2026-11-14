@@ -18,7 +18,7 @@ configured.
 | Audit with approved Pi development hosts 1.5.2 | 23 moderate; exit 1 |
 | Fresh install with lifecycle scripts disabled | Pass; upstream deprecations remain |
 | Bundle, declarations, test compilation, TypeScript | Pass locally; no test bodies executed |
-| Full check; both Pi scenarios on Pi 1.5.2 and Pi 0.83.0 | Hosted Ubuntu CI: pending the run for this commit |
+| Full check; both Pi scenarios on Pi 1.5.2 and Pi 0.83.0 | Pass on hosted Ubuntu at `8e04f28`: [check](https://github.com/wrkhse/sourcefed/actions/runs/43574502746/job/132385688604), [Pi integration, both legs](https://github.com/wrkhse/sourcefed/actions/runs/43574502746/job/132385688848) |
 
 The owner approves the Pi development-host refresh to 1.5.2. The published
 package retains optional `"*"` Pi peers; it gains no runtime dependency or
