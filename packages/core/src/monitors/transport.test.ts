@@ -54,9 +54,14 @@ class PollOnlyMonitor extends Monitor<TestSource> {
     matches: (source: TestSource, payload: unknown): boolean => (payload as { key?: string }).key === source.key,
   }
 
-  constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] }>) {
+  constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] } | { deferred: true }>) {
     super({ type: "test", schema: testSourceSchema })
-    this.poll = new PollMonitor({ run: async () => ({ ...(await run()), terminal: false }) })
+    this.poll = new PollMonitor({
+      run: async () => {
+        const result = await run()
+        return "deferred" in result ? result : { ...result, terminal: false }
+      },
+    })
   }
 
   build(): { type: "test"; key: string } {
@@ -134,6 +139,42 @@ describe("Monitor transport orchestration", () => {
     await tick(current)
 
     assert.equal(polls, 2)
+  })
+
+  test("a deferred poll keeps the cursor and stays due", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    let polls = 0
+    const monitor = new PollOnlyMonitor(async () => {
+      polls += 1
+      if (polls === 1) return { deferred: true }
+      return { cursor: { seen: true }, events: [] }
+    })
+    const sink: MonitorEventSink = { deliver: async () => ({ ok: true }) }
+    const current = { ...context(service, sink), sources: { test: monitor } }
+    const record = await createRecord(service)
+    await service.updateCursor(record, "issue-1", { seen: false })
+
+    await tick(current)
+    assert.deepEqual((await service.get(record.id))?.cursors, { "issue-1": { seen: false } })
+
+    await tick(current)
+    assert.equal(polls, 2)
+    assert.deepEqual((await service.get(record.id))?.cursors["issue-1"], { seen: true })
+  })
+
+  test("a deferred monitor shows as unresponsive once its last read is ten windows old", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    const monitor = new PollOnlyMonitor(async () => ({ deferred: true }))
+    const sink: MonitorEventSink = { deliver: async () => ({ ok: true }) }
+    const record = await createRecord(service)
+    const readAgo = (ms: number): MonitorRecord => ({ ...record, cursors: { __lastPolledAt: Date.now() - ms } })
+    // A 60-second interval gives a 3-minute unresponsive window and 30 minutes of grace.
+    assert.equal(monitor.poll.isUnresponsive(readAgo(4 * 60_000), Date.now()), true, "not deferred")
+
+    await monitor.poll.run(context(service, sink), monitor, record)
+    assert.equal(monitor.poll.isUnresponsive(readAgo(4 * 60_000), Date.now()), false, "deferred, read 4 minutes ago")
+    assert.equal(monitor.poll.isUnresponsive(readAgo(30 * 60_000), Date.now()), false, "deferred, read 30 minutes ago")
+    assert.equal(monitor.poll.isUnresponsive(readAgo(31 * 60_000), Date.now()), true, "deferred, read 31 minutes ago")
   })
 
   test("a matching webhook wakes a poll before its interval", async () => {
