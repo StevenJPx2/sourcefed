@@ -12,9 +12,8 @@ const activePolls = new Set<string>()
 // monitor that keeps being deferred is marked again on every tick.
 const DEFERRED_MARK_MS = 10 * 60_000
 // However long a source defers a monitor, it shows as unresponsive once its last read is
-// this many intervals old (and at least this long).
+// this many unresponsive windows old: 30 minutes for a 60-second poll interval.
 const DEFERRED_GRACE_INTERVALS = 10
-const MIN_DEFERRED_GRACE_MS = 15 * 60_000
 
 export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
   // When each monitor's poll was last deferred. In memory only: it answers whether a
@@ -87,7 +86,7 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
     // A monitor whose source keeps deferring it is waiting its turn, not failing, until its
     // last read is so old that waiting no longer explains it.
     const deferredAt = this.deferredAt.get(record.id)
-    const graceMs = Math.max(DEFERRED_GRACE_INTERVALS * intervalMs, MIN_DEFERRED_GRACE_MS)
+    const graceMs = DEFERRED_GRACE_INTERVALS * intervalMs
     if (deferredAt !== undefined && now - deferredAt <= intervalMs && sinceRead <= graceMs) return false
     return sinceRead > intervalMs
   }

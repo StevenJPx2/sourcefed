@@ -3,12 +3,13 @@
 // are Tier 3 (50+ a minute) for internal apps; 20 a minute keeps every monitor on a token
 // well inside it.
 const DEFAULT_REQUESTS_PER_MINUTE = 20
-// The budget is shared by conversations.replies and conversations.history, both Tier 3, so
-// a budget above Tier 3's 50 a minute could send one method past its own limit.
-export const MAX_REQUESTS_PER_MINUTE = 50
+// The budget is shared by conversations.replies and conversations.history, both Tier 3 at
+// 50 a minute. At 45 a minute the burst is 5, so no sliding minute starts more than 50 reads.
+export const MAX_REQUESTS_PER_MINUTE = 45
 
-// The burst covers one runtime tick (5s by default) at the budget's rate, and at least three,
-// so credit earned between two 5-second ticks (1.7 at 20 a minute) is not discarded.
+// The burst holds one runtime tick's credit (the default tick is 5s) plus the fraction left
+// over from the last grant, and at least three, so a token polled every tick uses its whole
+// budget. A longer tick earns more than the burst holds, and the rest is not used.
 const BURST_WINDOW_SEC = 5
 const MIN_BURST = 3
 
@@ -28,7 +29,9 @@ export type SlackLimiterOptions = {
   log: (line: string) => void
 }
 
-type Waiter = { lastAsked: number; seq: number }
+// `granted` is set once the monitor has had a request; a first read jumps the queue only
+// before that, so a monitor whose priming read keeps failing waits its turn like the rest.
+type Waiter = { lastAsked: number; seq: number; granted: boolean }
 
 // One Retry-After wait. Its log line is written once every monitor held back has asked:
 // when the monitor that hit the limit asks again (a whole tick later), or the wait ends.
@@ -65,12 +68,13 @@ export class SlackRateLimiter {
 
   constructor(private readonly options: SlackLimiterOptions) {
     const perTick = Math.ceil((options.requestsPerMinute * BURST_WINDOW_SEC) / 60)
-    this.burst = Math.max(1, Math.min(Math.ceil(options.requestsPerMinute), Math.max(MIN_BURST, perTick)))
+    this.burst = Math.max(1, Math.min(Math.ceil(options.requestsPerMinute), Math.max(MIN_BURST, perTick + 1)))
   }
 
   /**
    * Takes one request for `key` (one monitor); false defers the poll. A `first` read primes
-   * a new monitor, and everything posted before it counts as already seen, so it goes first.
+   * a new monitor, and everything posted before it counts as already seen, so it goes first,
+   * until the monitor's first request is granted.
    */
   acquire(token: string, key: string, first = false): boolean {
     const now = this.options.now()
@@ -82,6 +86,7 @@ export class SlackRateLimiter {
     if (budget.credit < 1 || budget.queue[0] !== key) return false
     budget.queue.shift()
     budget.credit -= 1
+    budget.waiters.get(key)!.granted = true
     return true
   }
 
@@ -156,7 +161,9 @@ export class SlackRateLimiter {
     wait.logged = true
     const seconds = Math.round((budget.pausedUntil - wait.startedAt) / 1000)
     const clamped = seconds < wait.askedSec ? ` (Slack asked for ${wait.askedSec}s; waits are capped at ${MAX_RETRY_AFTER_SEC}s)` : ""
-    const monitors = wait.held.size
+    // Every monitor that asked recently is held back, including those that have not asked
+    // since the wait began: monitors on one token ask on different ticks.
+    const monitors = new Set([...wait.held, ...budget.waiters.keys()]).size
     this.options.log(
       `[sourcefed] Slack rate-limited ${wait.method}: waiting ${seconds}s${clamped} before polling ${monitors} Slack monitor${monitors === 1 ? "" : "s"} on this token again`,
     )
@@ -168,7 +175,7 @@ export class SlackRateLimiter {
   private ask(budget: TokenBudget, key: string, now: number, first: boolean): void {
     const previous = budget.waiters.get(key)
     budget.seq += 1
-    budget.waiters.set(key, { lastAsked: now, seq: budget.seq })
+    budget.waiters.set(key, { lastAsked: now, seq: budget.seq, granted: previous?.granted ?? false })
     if (previous) {
       budget.queue = budget.queue.filter((waiting) => {
         const waiter = budget.waiters.get(waiting)
@@ -179,7 +186,7 @@ export class SlackRateLimiter {
     for (const [waiting, waiter] of budget.waiters) {
       if (now - waiter.lastAsked > WAITER_FORGET_MS) budget.waiters.delete(waiting)
     }
-    if (first) {
+    if (first && !previous?.granted) {
       budget.queue = [key, ...budget.queue.filter((waiting) => waiting !== key)]
     } else if (!budget.queue.includes(key)) {
       budget.queue.push(key)
@@ -195,7 +202,7 @@ export class SlackRateLimiter {
 }
 
 /**
- * Reads SOURCEFED_SLACK_REQUESTS_PER_MINUTE: 20 a minute when unset, and at most 50. An
+ * Reads SOURCEFED_SLACK_REQUESTS_PER_MINUTE: 20 a minute when unset, and at most 45. An
  * invalid or too-high value is reported through `warn` and replaced.
  */
 export function slackRequestsPerMinute(
@@ -209,7 +216,7 @@ export function slackRequestsPerMinute(
     return DEFAULT_REQUESTS_PER_MINUTE
   }
   if (parsed > MAX_REQUESTS_PER_MINUTE) {
-    warn(`[sourcefed] SOURCEFED_SLACK_REQUESTS_PER_MINUTE=${value} is above Slack's Tier 3 limit; using ${MAX_REQUESTS_PER_MINUTE}`)
+    warn(`[sourcefed] SOURCEFED_SLACK_REQUESTS_PER_MINUTE=${value} leaves no room for the burst under Slack's Tier 3 limit of 50; using ${MAX_REQUESTS_PER_MINUTE}`)
     return MAX_REQUESTS_PER_MINUTE
   }
   return parsed

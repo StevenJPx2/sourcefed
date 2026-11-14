@@ -11,8 +11,9 @@ export async function pollSlack(source: SlackSourceRecord, cursorRaw: unknown, m
   // A primed monitor asks only for messages after the newest it has seen: those are the
   // only ones the cursor can count as new, and usually they fit on the first page.
   const cursor = v.safeParse(SlackCursorSchema, cursorRaw)
-  const after = cursor.success && cursor.output.primed ? cursor.output.latestTs : undefined
-  const request = { monitorId, ...(after ? { after } : {}) }
+  const primed = cursor.success && cursor.output.primed
+  const after = primed ? cursor.output.latestTs : undefined
+  const request = { monitorId, first: !primed, ...(after ? { after } : {}) }
   const result = source.threadTs
     ? await fetchSlackThread(source.channelId, source.threadTs, request)
     : await fetchSlackDm(source.channelId, request)

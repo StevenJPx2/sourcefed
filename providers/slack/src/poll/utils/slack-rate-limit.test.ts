@@ -22,6 +22,8 @@ class FakeSlack {
   pageSize = 1000
   threads = new Map<string, SlackMessage[]>()
   dms = new Map<string, SlackMessage[]>()
+  // Channels Slack answers with this error, such as not_in_channel.
+  errors = new Map<string, string>()
   // Answers for "<channel>:<page>" wait for this promise, so a test can overlap two polls.
   holds = new Map<string, Promise<void>>()
 
@@ -36,6 +38,8 @@ class FakeSlack {
       this.calls.push(call)
       if (method === "users.list") return Response.json({ ok: true, members: [{ id: "U1", name: "priya", real_name: "Priya" }] })
       await this.holds.get(`${channel}:${page}`)
+      const error = this.errors.get(channel)
+      if (error) return Response.json({ ok: false, error })
       const limit = this.limit
       if (limit && page >= (limit.fromPage ?? 0) && (limit.channel === undefined || limit.channel === channel)) {
         call.status = limit.status ?? 429
@@ -86,11 +90,11 @@ beforeEach(() => {
   mock.timers.enable({ apis: ["Date"], now: START })
   logs = []
   failures = []
-  // Only sourcefed's own lines: Node reports its experimental-API warnings here too, once a
-  // process, so which test sees one depends on the order the tests run in.
+  // Node reports its experimental-API warnings here too, once a process, so which test
+  // sees one depends on the order the tests run in.
   mock.method(console, "error", (...args: unknown[]) => {
     const line = args.map(String).join(" ")
-    if (line.startsWith("[sourcefed]")) failures.push(line)
+    if (!line.includes("ExperimentalWarning")) failures.push(line)
   })
   slack = new FakeSlack()
   slack.install()
@@ -214,7 +218,7 @@ describe("Slack rate limits", () => {
     advance(6_000)
     shared.acquire("xoxb-a", "m2")
     assert.equal(logs.length, 2, "a wait that ends before the monitor asks again is logged when it ends")
-    assert.match(logs[1]!, /conversations\.history: waiting 5s before polling 1 Slack monitor on/)
+    assert.match(logs[1]!, /conversations\.history: waiting 5s before polling 4 Slack monitors on/)
   })
 
   test("a Retry-After longer than an hour is capped, and the log says so", async () => {
@@ -237,7 +241,7 @@ describe("Slack rate limits", () => {
     assert.deepEqual(await fetchSlackThread("C2", "2.0", { monitorId: "m2" }), { deferred: true })
     assert.equal(slack.reads().length, 1)
     advance(14_000)
-    assert.ok(!("deferred" in await fetchSlackThread("C1", "1.0", { monitorId: "m1" })))
+    assert.ok(!("deferred" in await fetchSlackThread("C2", "2.0", { monitorId: "m2" })))
   })
 
   test("Retry-After values", () => {
@@ -263,9 +267,10 @@ describe("Slack rate limits", () => {
       ["", 20, false],
       ["1", 1, false],
       ["0.5", 0.5, false],
-      ["50", 50, false],
-      ["51", 50, true],
-      ["1e9", 50, true],
+      ["45", 45, false],
+      ["46", 45, true],
+      ["50", 45, true],
+      ["1e9", 45, true],
       ["0", 20, true],
       ["-3", 20, true],
       ["fast", 20, true],
@@ -276,6 +281,26 @@ describe("Slack rate limits", () => {
       assert.equal(slackRequestsPerMinute(value, (line) => warnings.push(line)), expected, `value ${JSON.stringify(value)}`)
       assert.equal(warnings.length, warns ? 1 : 0, `warnings for ${JSON.stringify(value)}`)
     }
+  })
+
+  test("no budget lets a sliding minute start more than Tier 3's 50 reads", () => {
+    for (let perMinute = 1; perMinute <= 45; perMinute++) {
+      const { burst } = limiter(perMinute)
+      assert.ok(perMinute + burst <= 50, `${perMinute} a minute has a burst of ${burst}`)
+    }
+  })
+
+  test("a first read jumps the queue only until it is granted", () => {
+    const shared = limiter()
+    for (const key of ["m1", "m2", "m3"]) assert.equal(shared.acquire("xoxb-a", key), true)
+    assert.equal(shared.acquire("xoxb-a", "m4"), false)
+    assert.equal(shared.acquire("xoxb-a", "m5"), false)
+
+    advance(3_000)
+    assert.equal(shared.acquire("xoxb-a", "new", true), true, "a new monitor goes ahead of m4 and m5")
+    advance(3_000)
+    assert.equal(shared.acquire("xoxb-a", "new", true), false, "its next read, still unprimed, waits its turn")
+    assert.equal(shared.acquire("xoxb-a", "m4"), true)
   })
 })
 
@@ -356,6 +381,59 @@ describe("Slack monitors under a rate limit", () => {
     assert.deepEqual(logs, [
       "[sourcefed] Slack rate-limited conversations.replies: waiting 30s before polling 32 Slack monitors on this token again",
     ])
+  })
+
+  test("the log counts every monitor on the token, however their polls are spread", async () => {
+    const runtime = new MonitorRuntime({
+      store: new InMemoryMonitorStore(),
+      sink: { deliver: async () => ({ ok: true }) },
+      sources: { slack: new SlackMonitor() },
+      sourceForWebhookPath: () => undefined,
+    })
+    for (let index = 1; index <= 12; index++) {
+      await runtime.service.create({
+        name: `thread ${index}`,
+        source: { type: "slack", channelId: `C${index}`, threadTs: `${index}.000000` },
+        delivery: "poll",
+        target: { kind: "test", id: `session-${index}` },
+        pollIntervalSec: 60,
+      })
+      await runFor(runtime, 5_000)
+    }
+    await runFor(runtime, 3 * 60_000)
+    const perTick = new Set(slack.reads().filter((call) => call.at > Date.now() - 60_000).map((call) => call.at))
+    assert.ok(perTick.size >= 6, `polls are spread over the minute: ${perTick.size} ticks`)
+
+    slack.limit = { retryAfter: 30 }
+    while (!slack.calls.some((call) => call.status === 429)) await runFor(runtime, 5_000)
+    slack.limit = undefined
+    await runFor(runtime, 60_000)
+    assert.deepEqual(logs, [
+      "[sourcefed] Slack rate-limited conversations.replies: waiting 30s before polling 12 Slack monitors on this token again",
+    ])
+  })
+
+  test("an unprimed monitor whose reads keep failing waits its turn after its first", async () => {
+    const { runtime } = await runtimeWith(32)
+    await runtime.tick()
+    await runFor(runtime, 3 * 60_000)
+
+    slack.errors.set("C99", "not_in_channel")
+    const createdAt = Date.now()
+    await runtime.service.create({
+      name: "not a member",
+      source: { type: "slack", channelId: "C99", threadTs: "99.000000" },
+      delivery: "poll",
+      target: { kind: "test", id: "session-99" },
+      pollIntervalSec: 15,
+    })
+    await runFor(runtime, 5 * 60_000)
+
+    const failing = slack.reads().filter((call) => call.channel === "C99")
+    assert.ok(failing[0]!.at - createdAt <= 10_000, "its first read goes ahead")
+    // The queue of 33 monitors turns about every 100 seconds at 20 a minute.
+    assert.ok(failing.length <= 5, `${failing.length} reads in five minutes`)
+    assert.ok(failures.length > 0 && failures.every((line) => line.includes("not_in_channel")))
   })
 
   test("a read part-way through its pages stops when an overlapping tick hits a limit", async () => {
@@ -467,6 +545,18 @@ describe("Slack monitors under a rate limit", () => {
     assert.equal(perMonitor.size, 32)
     assert.ok(Math.min(...perMonitor.values()) >= 4, "every monitor gets its turn")
     assert.deepEqual(logs, [])
+  })
+
+  test("a busy token uses its whole budget at rates that are not a multiple of the tick", async () => {
+    for (const perMinute of [35, 45]) {
+      resetSlackApi(limiter(perMinute))
+      slack.calls = []
+      const { runtime } = await runtimeWith(64)
+      await runtime.tick()
+      await runFor(runtime, 10 * 60_000)
+      const reads = slack.reads().length
+      assert.ok(reads >= (perMinute - 1) * 10, `${reads} reads in ten minutes at ${perMinute} a minute`)
+    }
   })
 
   test("every monitor gets its turn when the runtime ticks only once a minute", async () => {

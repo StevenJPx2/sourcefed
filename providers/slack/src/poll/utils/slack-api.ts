@@ -18,8 +18,11 @@ type SlackReply =
 
 export type SlackRead = { messages: any[]; users: SlackUser[] }
 
-/** Which messages a poll asks for. `after` is the newest message the monitor has seen. */
-export type SlackReadRequest = { monitorId: string; after?: string }
+/**
+ * Which messages a poll asks for. `after` is the newest message the monitor has seen, and
+ * `first` marks the read that primes a new monitor.
+ */
+export type SlackReadRequest = { monitorId: string; after?: string; first?: boolean }
 
 /**
  * How a read pages. Thread replies come oldest first, so a read cut short still moves the
@@ -75,7 +78,7 @@ async function readSlack(plan: ReadPlan): Promise<SlackRead | SourcePollDeferred
   const token = process.env.SOURCEFED_SLACK_TOKEN
   if (!token) throw new Error(`slack ${plan.method} failed: SOURCEFED_SLACK_TOKEN is not set`)
   const priming = plan.request.after === undefined
-  if (!limiter.acquire(token, plan.request.monitorId, priming)) return DEFERRED
+  if (!limiter.acquire(token, plan.request.monitorId, plan.request.first === true)) return DEFERRED
 
   const keepsPartial = plan.oldestFirst && !priming
   const messages: any[] = []

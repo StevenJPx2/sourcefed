@@ -59,7 +59,7 @@ SOURCEFED_DAEMON_URL            Base URL of a shared daemon (default http://127.
 SOURCEFED_DAEMON_TOKEN          Bearer token required when binding a non-loopback host
 SOURCEFED_SLACK_TOKEN           Slack bot/user token for direct Slack Web API polling
 SOURCEFED_SLACK_REQUESTS_PER_MINUTE
-                                Slack requests a minute shared by the monitors on one token (default 20, max 50)
+                                Slack requests a minute shared by the monitors on one token (default 20, max 45)
 SOURCEFED_STATE_DIR             State directory (default ~/.local/state/sourcefed)
 SOURCEFED_DAEMON_PORT           HTTP daemon port (default 18787)
 SOURCEFED_MCP_PORT              MCP HTTP port (default 18788)
