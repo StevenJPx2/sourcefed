@@ -9,6 +9,10 @@ import { eventDeliveryId } from "./utils/event-delivery-id.ts"
 const activePolls = new Set<string>()
 
 export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
+  // When each monitor's poll was last deferred. In memory only: it answers whether a
+  // monitor is waiting its turn now, and a deferred poll must not write the store.
+  private readonly deferredAt = new Map<string, number>()
+
   constructor(private readonly options: PollMonitorOptions<TSource>) {}
 
   async run(context: MonitorContext, source: Monitor<TSource>, record: MonitorRecord): Promise<number> {
@@ -20,7 +24,13 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
 
       const sourceRecord = source.validateSource(fresh.source)
       const cursorKey = source.key(sourceRecord)
-      const result = await this.options.run(sourceRecord, fresh.cursors[cursorKey])
+      const result = await this.options.run(sourceRecord, fresh.cursors[cursorKey], fresh.id)
+      // A deferred poll made no request: no cursor or poll stamp changes, so the monitor stays due.
+      if ("deferred" in result) {
+        this.deferredAt.set(fresh.id, Date.now())
+        return 0
+      }
+      this.deferredAt.delete(fresh.id)
 
       const current = await context.service.get(record.id)
       if (!current || !current.enabled) return 0
@@ -60,6 +70,9 @@ export class PollMonitor<TSource extends MonitorSource = MonitorSource> {
 
   isUnresponsive(record: MonitorRecord, now: number): boolean {
     const intervalMs = Math.max((record.pollIntervalSec || 60) * 3_000, 120_000)
+    // A monitor whose source keeps deferring it is waiting its turn, not failing.
+    const deferredAt = this.deferredAt.get(record.id)
+    if (deferredAt !== undefined && now - deferredAt <= intervalMs) return false
     const lastPolledAt = Number(record.cursors.__lastPolledAt ?? 0)
     if (lastPolledAt > 0) return now - lastPolledAt > intervalMs
     return now - Date.parse(record.createdAt) > intervalMs

@@ -54,9 +54,14 @@ class PollOnlyMonitor extends Monitor<TestSource> {
     matches: (source: TestSource, payload: unknown): boolean => (payload as { key?: string }).key === source.key,
   }
 
-  constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] }>) {
+  constructor(run: () => Promise<{ cursor: unknown; events: MonitorEvent[] } | { deferred: true }>) {
     super({ type: "test", schema: testSourceSchema })
-    this.poll = new PollMonitor({ run: async () => ({ ...(await run()), terminal: false }) })
+    this.poll = new PollMonitor({
+      run: async () => {
+        const result = await run()
+        return "deferred" in result ? result : { ...result, terminal: false }
+      },
+    })
   }
 
   build(): { type: "test"; key: string } {
@@ -134,6 +139,27 @@ describe("Monitor transport orchestration", () => {
     await tick(current)
 
     assert.equal(polls, 2)
+  })
+
+  test("a deferred poll keeps the cursor and stays due", async () => {
+    const service = new MonitorService(new InMemoryMonitorStore())
+    let polls = 0
+    const monitor = new PollOnlyMonitor(async () => {
+      polls += 1
+      if (polls === 1) return { deferred: true }
+      return { cursor: { seen: true }, events: [] }
+    })
+    const sink: MonitorEventSink = { deliver: async () => ({ ok: true }) }
+    const current = { ...context(service, sink), sources: { test: monitor } }
+    const record = await createRecord(service)
+    await service.updateCursor(record, "issue-1", { seen: false })
+
+    await tick(current)
+    assert.deepEqual((await service.get(record.id))?.cursors, { "issue-1": { seen: false } })
+
+    await tick(current)
+    assert.equal(polls, 2)
+    assert.deepEqual((await service.get(record.id))?.cursors["issue-1"], { seen: true })
   })
 
   test("a matching webhook wakes a poll before its interval", async () => {

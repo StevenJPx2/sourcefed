@@ -4,8 +4,9 @@ import type { SlackSourceRecord } from "../types"
 import { pollSlack } from "./utils"
 
 export const slackPollMonitor = new PollMonitor<SlackSourceRecord>({
-  run: async (source, cursor) => {
-    const result = await pollSlack(source, cursor)
+  run: async (source, cursor, monitorId) => {
+    const result = await pollSlack(source, cursor, monitorId)
+    if ("deferred" in result) return result
     return {
       cursor: result.cursor,
       events: result.events.map((event) => toMonitorEvent(event, source)),

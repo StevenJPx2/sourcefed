@@ -244,6 +244,10 @@ use:
   `issues` webhooks wake `github-issues` monitors of that repository early.
 - **Slack polling** — `SOURCEFED_SLACK_TOKEN` (bot or user token). Reads and notifies only;
   never sends messages. The bot must be a member of the channel or DM it monitors.
+  All Slack monitors on one token share a budget of 20 requests a minute
+  (`SOURCEFED_SLACK_REQUESTS_PER_MINUTE`, read when the daemon starts), so more monitors
+  poll less often instead of sending more. When Slack rate-limits a call, every monitor
+  on that token waits out its `Retry-After` and the log gets one line.
 - **Yab feeds** — reads the feed through the [Yab](https://yetanotherbrowser.com) browser's
   `fetch` tool (`yab mcp`, started per poll), so it uses the browser's sign-ins: private
   feeds such as Gmail's unread-inbox Atom feed work with no token. Yab must be running;

@@ -8,5 +8,5 @@ export type { MonitorEventQueue, QueuedMonitorEvent } from "./monitor-event-queu
 export type { MonitorStore } from "./monitor-store.ts"
 export type { MonitorTarget } from "./monitor-target.ts"
 export type { SourceEvent } from "./source-event.ts"
-export type { SourcePollResult } from "./source-poll-result.ts"
+export type { SourcePollDeferred, SourcePollRead, SourcePollResult } from "./source-poll-result.ts"
 export type { MonitorOptions, MonitorSchema } from "./monitor-options.ts"
