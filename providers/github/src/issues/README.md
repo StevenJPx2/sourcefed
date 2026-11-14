@@ -6,7 +6,7 @@ tells a program when an issue starts matching and when it stops.
 
 ```sh
 sourcefed monitor create --target-kind program --target-id atelier \
-  --source-type github-issues --repo StevenJPx2/atelier --labels atelier:build \
+  --source-type github-issues --repo wrkhse/atelier --labels atelier:build \
   --include-existing --name atelier-build
 ```
 
