@@ -86,7 +86,12 @@ beforeEach(() => {
   mock.timers.enable({ apis: ["Date"], now: START })
   logs = []
   failures = []
-  mock.method(console, "error", (...args: unknown[]) => failures.push(args.map(String).join(" ")))
+  // Only sourcefed's own lines: Node reports its experimental-API warnings here too, once a
+  // process, so which test sees one depends on the order the tests run in.
+  mock.method(console, "error", (...args: unknown[]) => {
+    const line = args.map(String).join(" ")
+    if (line.startsWith("[sourcefed]")) failures.push(line)
+  })
   slack = new FakeSlack()
   slack.install()
   resetSlackApi(limiter())
