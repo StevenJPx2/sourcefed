@@ -245,9 +245,12 @@ use:
 - **Slack polling** — `SOURCEFED_SLACK_TOKEN` (bot or user token). Reads and notifies only;
   never sends messages. The bot must be a member of the channel or DM it monitors.
   All Slack monitors on one token share a budget of 20 requests a minute
-  (`SOURCEFED_SLACK_REQUESTS_PER_MINUTE`, read when the daemon starts), so more monitors
-  poll less often instead of sending more. When Slack rate-limits a call, every monitor
-  on that token waits out its `Retry-After` and the log gets one line.
+  (`SOURCEFED_SLACK_REQUESTS_PER_MINUTE`, at most 50, read when the daemon starts), so
+  more monitors poll less often instead of sending more: each polls about every
+  `max(pollIntervalSec, monitors × 3s)` at the default, about 100s with 32 monitors and
+  200s with 64. When Slack rate-limits a call, every monitor on that token waits out its
+  `Retry-After` (at most an hour) and the log gets one line. Apps distributed outside the
+  Slack Marketplace get 1 request a minute; set the variable to `1` for them.
 - **Yab feeds** — reads the feed through the [Yab](https://yetanotherbrowser.com) browser's
   `fetch` tool (`yab mcp`, started per poll), so it uses the browser's sign-ins: private
   feeds such as Gmail's unread-inbox Atom feed work with no token. Yab must be running;

@@ -1,5 +1,5 @@
 import type { SourcePollDeferred } from "@sourcefed/core"
-import { SlackRateLimiter, slackRequestsPerMinute } from "./slack-limiter.ts"
+import { MAX_RETRY_AFTER_SEC, SlackRateLimiter, slackRequestsPerMinute } from "./slack-limiter.ts"
 
 const SLACK_API = "https://slack.com/api"
 
@@ -8,7 +8,7 @@ const SLACK_API = "https://slack.com/api"
 // shared list per token, refreshed hourly, names authors well enough.
 const USERS_TTL_MS = 60 * 60 * 1000
 
-// Slack always sends Retry-After with a 429; this covers an answer without one.
+// Slack always sends Retry-After with a 429; this covers an answer without a usable one.
 const DEFAULT_RETRY_AFTER_SEC = 60
 
 type SlackUser = { id: string; name: string; real_name: string }
@@ -67,21 +67,25 @@ function defaultLimiter(): SlackRateLimiter {
 }
 
 // A poll takes one request from its token's budget, or is deferred without calling Slack.
-// A rate limit part-way through keeps a thread's pages read so far and defers any other read.
+// A primed thread poll may stop at any page and continue next time, so its further pages
+// wait for budget, and a rate limit part-way through keeps the pages read so far. Any other
+// read must finish to be safe: its pages go at once (later polls on the token pay them
+// back), and a rate limit or a wait started by another poll defers the whole read.
 async function readSlack(plan: ReadPlan): Promise<SlackRead | SourcePollDeferred> {
   const token = process.env.SOURCEFED_SLACK_TOKEN
   if (!token) throw new Error(`slack ${plan.method} failed: SOURCEFED_SLACK_TOKEN is not set`)
-  if (!limiter.acquire(token, plan.request.monitorId)) return DEFERRED
-
   const priming = plan.request.after === undefined
+  if (!limiter.acquire(token, plan.request.monitorId, priming)) return DEFERRED
+
   const keepsPartial = plan.oldestFirst && !priming
   const messages: any[] = []
   let cursor = ""
   do {
-    if (cursor && !takeNextPage(token, keepsPartial)) break
+    if (cursor && keepsPartial && !limiter.spend(token)) break
+    if (cursor && !keepsPartial && !limiter.charge(token)) return DEFERRED
     const page = await slackApi(token, plan.method, { ...plan.params, limit: "1000", ...(cursor ? { cursor } : {}) })
     if (!page.ok) {
-      if (page.retryAfterSec !== undefined) limiter.pause(token, page.retryAfterSec, plan.method)
+      if (page.retryAfterSec !== undefined) limiter.pause(token, page.retryAfterSec, plan.method, plan.request.monitorId)
       if (messages.length > 0 && keepsPartial) break
       if (page.retryAfterSec !== undefined) return DEFERRED
       throw new Error(`slack ${plan.method} failed: ${page.error}`)
@@ -93,15 +97,6 @@ async function readSlack(plan: ReadPlan): Promise<SlackRead | SourcePollDeferred
     if (messages.length >= 10_000) break
   } while (cursor)
   return { messages, users: await slackUsers(token) }
-}
-
-// A thread poll may stop at any page and continue next time, so its further pages wait for
-// budget. Any other read must finish to be safe, so its pages go now and later polls on the
-// token wait to pay them back.
-function takeNextPage(token: string, canStop: boolean): boolean {
-  if (canStop) return limiter.spend(token)
-  limiter.charge(token)
-  return true
 }
 
 async function slackUsers(token: string): Promise<SlackUser[]> {
@@ -123,7 +118,7 @@ async function refreshUsers(token: string): Promise<SlackUser[]> {
   do {
     const page = await slackApi(token, "users.list", { limit: "200", ...(cursor ? { cursor } : {}) })
     if (!page.ok) {
-      if (page.retryAfterSec !== undefined) usersPausedUntil.set(token, Date.now() + page.retryAfterSec * 1000)
+      if (page.retryAfterSec !== undefined) usersPausedUntil.set(token, Date.now() + Math.min(page.retryAfterSec, MAX_RETRY_AFTER_SEC) * 1000)
       return users.get(token)?.list ?? list
     }
     if (Array.isArray(page.result.members)) {
@@ -152,7 +147,10 @@ async function slackApi(token: string, method: string, params: Record<string, st
   }
 }
 
-function retryAfter(response: Response): number {
-  const seconds = Number(response.headers.get("retry-after"))
-  return Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds) : DEFAULT_RETRY_AFTER_SEC
+// Retry-After in seconds; "0" still waits a second. Missing or not a number waits a minute.
+export function retryAfter(response: Response): number {
+  const header = response.headers.get("retry-after")?.trim() ?? ""
+  const seconds = Number(header)
+  if (header === "" || !Number.isFinite(seconds) || seconds < 0) return DEFAULT_RETRY_AFTER_SEC
+  return Math.max(1, Math.ceil(seconds))
 }
