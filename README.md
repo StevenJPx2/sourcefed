@@ -289,7 +289,11 @@ consumer project, and runs real-life scenarios against the installed artifacts:
 - **opencode / pi adapters** — the installed aggregate plugin in a private OpenCode
   server invokes its registered monitor tool through a deterministic test command,
   without model credentials; Pi RPC mode loads the extension directly. Both use
-  owned test daemons. OpenCode is required; Pi skips when its host is unavailable.
+  owned test daemons. Both hosts are required: a scenario fails when its host is missing.
+
+Pass scenario file names to run only those, for example
+`npm run integration -- pi.test.mjs pi-package.test.mjs`; a filtered run prints how many
+of the scenarios it selected.
 
 Releases follow [docs/e2e-release-plan.md](./docs/e2e-release-plan.md): the exact tarball
 that publishes is tested with no private workspace packages installed, every scenario must
