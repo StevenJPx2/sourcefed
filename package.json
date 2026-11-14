@@ -5,7 +5,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/StevenJPx2/sourcefed.git"
+    "url": "https://github.com/wrkhse/sourcefed.git"
   },
   "license": "MIT",
   "type": "module",

@@ -10,7 +10,7 @@ schedule, and starts a pipeline run for each event:
 
 ```sh
 sourcefed monitor create --target-kind program --target-id atelier \
-  --source-type github-issues --repo StevenJPx2/atelier --labels atelier:build \
+  --source-type github-issues --repo wrkhse/atelier --labels atelier:build \
   --include-existing --name atelier-build
 
 sourcefed monitor create --target-kind program --target-id atelier \
@@ -69,7 +69,7 @@ answers `200` with `{ "id": 1, "result": … }`, `400` with
        "target": { "kind": "program", "id": "atelier" },
        "name": "atelier-build",
        "sourceType": "github-issues",
-       "repo": "StevenJPx2/atelier",
+       "repo": "wrkhse/atelier",
        "labels": ["atelier:build"],
        "includeExisting": true
      }
@@ -85,7 +85,7 @@ answers `200` with `{ "id": 1, "result": … }`, `400` with
    ```text
    data: {"type":"subscribed","target":{"kind":"program","id":"atelier"}}
 
-   data: {"type":"event","target":{…},"events":[{"id":"m-…:item.matched:StevenJPx2/atelier#48:…","monitorID":"m-…","event":{"kind":"item.matched","subject":{…},…},"queuedAt":"…"}]}
+   data: {"type":"event","target":{…},"events":[{"id":"m-…:item.matched:wrkhse/atelier#48:…","monitorID":"m-…","event":{"kind":"item.matched","subject":{…},…},"queuedAt":"…"}]}
    ```
 
 5. **Acknowledge after acting.** `monitor.ack` with the queued events' `id`s
